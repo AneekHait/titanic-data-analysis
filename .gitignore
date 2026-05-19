@@ -1,0 +1,12 @@
+data/raw/
+data/processed/
+outputs/figures/
+__pycache__/
+*.pyc
+.pytest_cache/
+.ipynb_checkpoints/
+.venv/
+venv/
+*.egg-info/
+dist/
+build/
