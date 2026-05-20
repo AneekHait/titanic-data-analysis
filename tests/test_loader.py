@@ -1,3 +1,5 @@
+"""Tests for data loader."""
+
 import pandas as pd
 import pytest
 from src.data.loader import load_titanic
