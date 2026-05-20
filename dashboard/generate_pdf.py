@@ -7,7 +7,7 @@ import re
 import matplotlib
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
-import matplotlib.patches as mpatches
+import matplotlib.ticker as mticker
 import seaborn as sns
 import pandas as pd
 import numpy as np
@@ -28,12 +28,17 @@ from src.config import OUTPUTS_FIGURES
 CHART_DIR = Path(__file__).parent / "_pdf_charts"
 CHART_DIR.mkdir(parents=True, exist_ok=True)
 
-sns.set_theme(style="whitegrid", palette="muted", font_scale=1.1)
+sns.set_theme(style="whitegrid", palette="muted", font_scale=1.2,
+              rc={"figure.facecolor": "#fafbfc", "axes.facecolor": "#ffffff",
+                  "grid.color": "#e5e7eb", "grid.linewidth": 0.5,
+                  "axes.edgecolor": "#d1d5db", "axes.linewidth": 0.8,
+                  "xtick.color": "#374151", "ytick.color": "#374151",
+                  "axes.labelcolor": "#1f2937", "text.color": "#1f2937"})
 
 COLORS = {
     "primary": "#1e3a5f",
     "accent": "#3b82f6",
-    "green": "#22c55e",
+    "green": "#10b981",
     "red": "#ef4444",
     "yellow": "#f59e0b",
     "purple": "#8b5cf6",
@@ -42,11 +47,25 @@ COLORS = {
     "text_light": "#64748b",
 }
 
+FONTSIZE = {"title": 13, "label": 11, "tick": 10, "annot": 10}
+
 def _save(fig, name):
     path = CHART_DIR / name
-    fig.savefig(path, bbox_inches="tight", dpi=150)
+    fig.savefig(path, bbox_inches="tight", dpi=300, facecolor="#fafbfc", edgecolor="none")
     plt.close(fig)
     return path
+
+def _add_bar_labels(ax, fmt="{:.1f}"):
+    for container in ax.containers:
+        ax.bar_label(container, fmt=fmt, fontsize=FONTSIZE["annot"], fontweight="600",
+                     padding=3, color="#1f2937")
+
+def _style_axes(ax, xlabel="", ylabel=""):
+    ax.set_xlabel(xlabel, fontsize=FONTSIZE["label"], fontweight="600")
+    ax.set_ylabel(ylabel, fontsize=FONTSIZE["label"], fontweight="600")
+    ax.tick_params(labelsize=FONTSIZE["tick"])
+    for spine in ax.spines.values():
+        spine.set_color("#d1d5db")
 
 def extract_titles(df):
     titles = df["Name"].apply(lambda x: re.search(r", ([A-Za-z]+) ", x))
@@ -63,178 +82,266 @@ def extract_titles(df):
     return titles.map(lambda t: title_map.get(t, "Other"))
 
 def chart_survival_overview(df):
-    fig, axes = plt.subplots(1, 3, figsize=(14, 4))
+    fig, axes = plt.subplots(1, 3, figsize=(16, 5))
+    fig.patch.set_facecolor("#fafbfc")
     counts = df["Survived"].value_counts()
-    axes[0].bar(["Perished", "Survived"], counts.values, color=[COLORS["red"], COLORS["green"]], width=0.5)
-    axes[0].set_title("Survival Count", fontweight="bold")
-    axes[0].set_ylabel("Passengers")
-    for i, v in enumerate(counts.values):
-        axes[0].text(i, v + 5, str(v), ha="center", fontweight="bold")
+    bars = axes[0].bar(["Perished", "Survived"], counts.values,
+                       color=[COLORS["red"], COLORS["green"]], width=0.5, edgecolor="white", linewidth=1.5)
+    axes[0].set_title("Survival Count", fontweight="700", fontsize=FONTSIZE["title"])
+    _style_axes(axes[0], ylabel="Passengers")
+    for bar in bars:
+        axes[0].text(bar.get_x() + bar.get_width()/2, bar.get_height() + 8,
+                     f"{int(bar.get_height())}", ha="center", fontweight="700",
+                     fontsize=FONTSIZE["annot"], color="#1f2937")
 
-    pd.crosstab(df["Sex"], df["Survived"], normalize="index").mul(100).plot(
-        kind="bar", ax=axes[1], color=[COLORS["red"], COLORS["green"]], width=0.6)
-    axes[1].set_title("Survival Rate by Sex", fontweight="bold")
-    axes[1].set_ylabel("Rate (%)")
-    axes[1].set_xticklabels(["Female", "Male"], rotation=0)
-    axes[1].legend(["Perished", "Survived"])
+    sex_ct = pd.crosstab(df["Sex"], df["Survived"], normalize="index").mul(100)
+    bars = sex_ct.plot(kind="bar", ax=axes[1], color=[COLORS["red"], COLORS["green"]],
+                       width=0.6, edgecolor="white", linewidth=1, legend=False)
+    axes[1].set_title("Survival Rate by Sex", fontweight="700", fontsize=FONTSIZE["title"])
+    _style_axes(axes[1], ylabel="Rate (%)")
+    axes[1].set_xticklabels(["Female", "Male"], rotation=0, fontsize=FONTSIZE["tick"])
+    axes[1].legend(["Perished", "Survived"], fontsize=FONTSIZE["tick"], frameon=True,
+                   facecolor="white", edgecolor="#d1d5db")
+    _add_bar_labels(axes[1], fmt="{:.1f}%")
 
-    pd.crosstab(df["Pclass"], df["Survived"], normalize="index").mul(100).plot(
-        kind="bar", ax=axes[2], color=[COLORS["red"], COLORS["green"]], width=0.6)
-    axes[2].set_title("Survival Rate by Class", fontweight="bold")
-    axes[2].set_ylabel("Rate (%)")
-    axes[2].set_xticklabels(["1st", "2nd", "3rd"], rotation=0)
-    axes[2].legend(["Perished", "Survived"])
+    pclass_ct = pd.crosstab(df["Pclass"], df["Survived"], normalize="index").mul(100)
+    pclass_ct.plot(kind="bar", ax=axes[2], color=[COLORS["red"], COLORS["green"]],
+                   width=0.6, edgecolor="white", linewidth=1, legend=False)
+    axes[2].set_title("Survival Rate by Class", fontweight="700", fontsize=FONTSIZE["title"])
+    _style_axes(axes[2], ylabel="Rate (%)")
+    axes[2].set_xticklabels(["1st", "2nd", "3rd"], rotation=0, fontsize=FONTSIZE["tick"])
+    axes[2].legend(["Perished", "Survived"], fontsize=FONTSIZE["tick"], frameon=True,
+                   facecolor="white", edgecolor="#d1d5db")
+    _add_bar_labels(axes[2], fmt="{:.1f}%")
     fig.tight_layout()
     return _save(fig, "survival_overview.png")
 
 def chart_age_analysis(df):
-    fig, axes = plt.subplots(1, 2, figsize=(14, 4))
+    fig, axes = plt.subplots(1, 2, figsize=(16, 5))
+    fig.patch.set_facecolor("#fafbfc")
+
     sns.histplot(df, x="Age", hue="Survived", ax=axes[0], kde=True,
-                 palette={0: COLORS["red"], 1: COLORS["green"]}, edgecolor="white")
-    axes[0].set_title("Age Distribution by Survival", fontweight="bold")
-    axes[0].set_xlabel("Age")
-    axes[0].legend(["Perished", "Survived"])
+                 palette=[COLORS["red"], COLORS["green"]], edgecolor="white", linewidth=0.5,
+                 alpha=0.7, bins=25)
+    axes[0].set_title("Age Distribution by Survival", fontweight="700", fontsize=FONTSIZE["title"])
+    _style_axes(axes[0], xlabel="Age")
+    axes[0].legend(["Perished", "Survived"], fontsize=FONTSIZE["tick"], frameon=True,
+                   facecolor="white", edgecolor="#d1d5db")
 
     sns.boxplot(df, x="Survived", y="Age", hue="Survived", ax=axes[1],
-                palette=[COLORS["red"], COLORS["green"]], legend=False)
-    axes[1].set_title("Age Boxplot by Survival", fontweight="bold")
-    axes[1].set_xticklabels(["Perished", "Survived"])
+                palette=[COLORS["red"], COLORS["green"]], width=0.5,
+                fliersize=3, linewidth=1.5, legend=False)
+    axes[1].set_title("Age Boxplot by Survival", fontweight="700", fontsize=FONTSIZE["title"])
+    _style_axes(axes[1])
+    axes[1].set_xticks([0, 1])
+    axes[1].set_xticklabels(["Perished", "Survived"], fontsize=FONTSIZE["tick"])
+
+    for i, surv in enumerate([0, 1]):
+        data = df[df["Survived"] == surv]["Age"].dropna()
+        median = data.median()
+        axes[1].axhline(median, color=[COLORS["red"], COLORS["green"]][i],
+                        linestyle="--", alpha=0.5, linewidth=1)
+        axes[1].text(0.05, median + 1, f"Median: {median:.1f}",
+                     fontsize=8, fontweight="600", color=[COLORS["red"], COLORS["green"]][i],
+                     transform=axes[1].get_yaxis_transform())
+
     fig.tight_layout()
     return _save(fig, "age_analysis.png")
 
 def chart_fare_analysis(df):
-    fig, axes = plt.subplots(1, 2, figsize=(14, 4))
-    sns.histplot(df, x="Fare", hue="Survived", ax=axes[0], kde=True,
-                 palette={0: COLORS["red"], 1: COLORS["green"]}, edgecolor="white")
-    axes[0].set_title("Fare Distribution by Survival", fontweight="bold")
-    axes[0].set_xlabel("Fare ($)")
-    axes[0].legend(["Perished", "Survived"])
+    fig, axes = plt.subplots(1, 2, figsize=(16, 5))
+    fig.patch.set_facecolor("#fafbfc")
 
-    sns.boxplot(df, x="Survived", y="Fare", hue="Survived", ax=axes[1],
-                palette=[COLORS["red"], COLORS["green"]], legend=False)
-    axes[1].set_title("Fare Boxplot by Survival", fontweight="bold")
-    axes[1].set_xticklabels(["Perished", "Survived"])
+    df_clean = df[df["Fare"] < df["Fare"].quantile(0.99)]
+    sns.histplot(df_clean, x="Fare", hue="Survived", ax=axes[0], kde=True,
+                 palette=[COLORS["red"], COLORS["green"]], edgecolor="white", linewidth=0.5,
+                 alpha=0.7, bins=30)
+    axes[0].set_title("Fare Distribution by Survival", fontweight="700", fontsize=FONTSIZE["title"])
+    _style_axes(axes[0], xlabel="Fare ($)")
+    axes[0].legend(["Perished", "Survived"], fontsize=FONTSIZE["tick"], frameon=True,
+                   facecolor="white", edgecolor="#d1d5db")
+
+    sns.boxplot(df_clean, x="Survived", y="Fare", hue="Survived", ax=axes[1],
+                palette=[COLORS["red"], COLORS["green"]], width=0.5,
+                fliersize=3, linewidth=1.5, legend=False)
+    axes[1].set_title("Fare Boxplot by Survival", fontweight="700", fontsize=FONTSIZE["title"])
+    _style_axes(axes[1])
+    axes[1].set_xticks([0, 1])
+    axes[1].set_xticklabels(["Perished", "Survived"], fontsize=FONTSIZE["tick"])
+    axes[1].yaxis.set_major_formatter(mticker.FormatStrFormatter("$%.0f"))
+
     fig.tight_layout()
     return _save(fig, "fare_analysis.png")
 
 def chart_embarked_analysis(df):
-    fig, axes = plt.subplots(1, 2, figsize=(14, 4))
-    pd.crosstab(df["Embarked"], df["Survived"], normalize="index").mul(100).plot(
-        kind="bar", ax=axes[0], color=[COLORS["red"], COLORS["green"]], width=0.6)
-    axes[0].set_title("Survival Rate by Embarked Port", fontweight="bold")
-    axes[0].set_ylabel("Rate (%)")
-    axes[0].set_xticklabels(["Cherbourg", "Queenstown", "Southampton", "Belfast"], rotation=0)
-    axes[0].legend(["Perished", "Survived"])
+    fig, axes = plt.subplots(1, 2, figsize=(16, 5))
+    fig.patch.set_facecolor("#fafbfc")
+    port_labels = ["Cherbourg", "Queenstown", "Southampton", "Belfast"]
 
-    df["Embarked"].value_counts().plot(kind="bar", ax=axes[1], color=COLORS["accent"])
-    axes[1].set_title("Passenger Count by Port", fontweight="bold")
-    axes[1].set_ylabel("Count")
-    axes[1].set_xticklabels(["Cherbourg", "Queenstown", "Southampton", "Belfast"], rotation=0)
+    emb_ct = pd.crosstab(df["Embarked"], df["Survived"], normalize="index").mul(100)
+    emb_ct.plot(kind="bar", ax=axes[0], color=[COLORS["red"], COLORS["green"]],
+                width=0.6, edgecolor="white", linewidth=1, legend=False)
+    axes[0].set_title("Survival Rate by Embarked Port", fontweight="700", fontsize=FONTSIZE["title"])
+    _style_axes(axes[0], ylabel="Rate (%)")
+    axes[0].set_xticklabels(port_labels, rotation=0, fontsize=FONTSIZE["tick"])
+    axes[0].legend(["Perished", "Survived"], fontsize=FONTSIZE["tick"], frameon=True,
+                   facecolor="white", edgecolor="#d1d5db")
+    _add_bar_labels(axes[0], fmt="{:.1f}%")
+
+    df["Embarked"].value_counts().reindex(emb_ct.index).plot(
+        kind="bar", ax=axes[1], color=COLORS["accent"], edgecolor="white", linewidth=1)
+    axes[1].set_title("Passenger Count by Port", fontweight="700", fontsize=FONTSIZE["title"])
+    _style_axes(axes[1], ylabel="Count")
+    axes[1].set_xticklabels(port_labels, rotation=0, fontsize=FONTSIZE["tick"])
+    _add_bar_labels(axes[1], fmt="{:.0f}")
+
     fig.tight_layout()
     return _save(fig, "embarked_analysis.png")
 
 def chart_family_survival(df):
+    fig, axes = plt.subplots(1, 2, figsize=(16, 5))
+    fig.patch.set_facecolor("#fafbfc")
     df2 = df.copy()
     df2["FamilySize"] = df2["SibSp"] + df2["Parch"] + 1
-    fig, axes = plt.subplots(1, 2, figsize=(14, 4))
-    df2.groupby("FamilySize")["Survived"].mean().mul(100).plot(kind="bar", ax=axes[0], color=COLORS["accent"])
-    axes[0].set_title("Survival Rate by Family Size", fontweight="bold")
-    axes[0].set_ylabel("Survival Rate (%)")
-    axes[0].set_xlabel("Family Size")
 
-    df2["FamilySize"].value_counts().sort_index().plot(kind="bar", ax=axes[1], color=COLORS["purple"])
-    axes[1].set_title("Passenger Count by Family Size", fontweight="bold")
-    axes[1].set_ylabel("Count")
-    axes[1].set_xlabel("Family Size")
+    family_rate = df2.groupby("FamilySize")["Survived"].mean().mul(100)
+    colors = [COLORS["green"] if v > 40 else COLORS["accent"] if v > 30 else COLORS["red"]
+              for v in family_rate.values]
+    family_rate.plot(kind="bar", ax=axes[0], color=colors, edgecolor="white", linewidth=1)
+    axes[0].set_title("Survival Rate by Family Size", fontweight="700", fontsize=FONTSIZE["title"])
+    _style_axes(axes[0], xlabel="Family Size", ylabel="Survival Rate (%)")
+    _add_bar_labels(axes[0], fmt="{:.1f}%")
+
+    family_count = df2["FamilySize"].value_counts().sort_index()
+    family_count.plot(kind="bar", ax=axes[1], color=COLORS["purple"], edgecolor="white", linewidth=1)
+    axes[1].set_title("Passenger Count by Family Size", fontweight="700", fontsize=FONTSIZE["title"])
+    _style_axes(axes[1], xlabel="Family Size", ylabel="Count")
+    _add_bar_labels(axes[1], fmt="{:.0f}")
+
     fig.tight_layout()
     return _save(fig, "family_analysis.png")
 
 def chart_correlation_heatmap(df):
     numeric = df[["Age", "Fare", "SibSp", "Parch", "Survived"]].select_dtypes(include="number")
-    fig, ax = plt.subplots(figsize=(7, 5))
-    sns.heatmap(numeric.corr(), annot=True, fmt=".2f", cmap="RdBu_r",
-                center=0, square=True, ax=ax, cbar_kws={"shrink": 0.75},
-                linewidths=0.5)
-    ax.set_title("Feature Correlation Heatmap", fontweight="bold", fontsize=13)
+    corr = numeric.corr()
+    fig, ax = plt.subplots(figsize=(8, 6))
+    fig.patch.set_facecolor("#fafbfc")
+    mask = np.triu(np.ones_like(corr, dtype=bool), k=1)
+    sns.heatmap(corr, annot=True, fmt=".2f", cmap="RdBu_r", center=0,
+                square=True, ax=ax, cbar_kws={"shrink": 0.8, "pad": 0.02},
+                linewidths=1.5, linecolor="#ffffff", mask=mask,
+                vmin=-0.4, vmax=0.4,
+                annot_kws={"fontsize": FONTSIZE["annot"], "fontweight": "600"})
+    ax.set_title("Feature Correlation Heatmap", fontweight="700", fontsize=FONTSIZE["title"] + 1, pad=12)
+    ax.tick_params(labelsize=FONTSIZE["tick"])
     fig.tight_layout()
     return _save(fig, "correlation_heatmap.png")
 
 def chart_missing_values(df):
     missing = df.isnull().sum()
     missing = missing[missing > 0].sort_values(ascending=False)
-    fig, ax = plt.subplots(figsize=(8, 4))
-    colors = [COLORS["red"] if v / len(df) > 0.5 else COLORS["yellow"] if v / len(df) > 0.1 else COLORS["green"] for v in missing.values]
-    bars = ax.barh(missing.index[::-1], missing.values[::-1], color=colors[::-1], height=0.5)
-    ax.set_title("Missing Values by Column", fontweight="bold")
-    ax.set_xlabel("Count")
+    fig, ax = plt.subplots(figsize=(9, 4))
+    fig.patch.set_facecolor("#fafbfc")
+    colors = [COLORS["red"] if v / len(df) > 0.5 else COLORS["yellow"] if v / len(df) > 0.1 else COLORS["green"]
+              for v in missing.values]
+    bars = ax.barh(missing.index[::-1], missing.values[::-1], color=colors[::-1],
+                   height=0.5, edgecolor="white", linewidth=1)
+    ax.set_title("Missing Values by Column", fontweight="700", fontsize=FONTSIZE["title"])
+    _style_axes(ax, xlabel="Count")
     for bar in bars:
-        ax.text(bar.get_width() + 5, bar.get_y() + bar.get_height() / 2,
-                str(int(bar.get_width())), va="center", fontweight="bold")
+        width = int(bar.get_width())
+        pct = width / len(df) * 100
+        ax.text(bar.get_width() + 10, bar.get_y() + bar.get_height() / 2,
+                f"{width} ({pct:.1f}%)", va="center", fontweight="700",
+                fontsize=FONTSIZE["annot"], color="#1f2937")
     fig.tight_layout()
     return _save(fig, "missing_values.png")
 
 def chart_age_survival_bins(df):
+    fig, axes = plt.subplots(1, 2, figsize=(16, 5))
+    fig.patch.set_facecolor("#fafbfc")
     df2 = df.copy()
-    df2["AgeGroup"] = pd.cut(df2["Age"], bins=[0, 16, 32, 48, 64, 80], labels=["0-16", "17-32", "33-48", "49-64", "65-80"])
-    fig, axes = plt.subplots(1, 2, figsize=(14, 4))
-    df2.groupby("AgeGroup", observed=True)["Survived"].mean().mul(100).plot(
-        kind="bar", ax=axes[0], color=COLORS["accent"])
-    axes[0].set_title("Survival Rate by Age Group", fontweight="bold")
-    axes[0].set_ylabel("Survival Rate (%)")
-    axes[0].set_xlabel("Age Group")
+    df2["AgeGroup"] = pd.cut(df2["Age"], bins=[0, 16, 32, 48, 64, 80],
+                             labels=["0-16", "17-32", "33-48", "49-64", "65-80"])
 
-    df2.groupby("AgeGroup", observed=True)["Survived"].count().plot(
-        kind="bar", ax=axes[1], color=COLORS["purple"])
-    axes[1].set_title("Passenger Count by Age Group", fontweight="bold")
-    axes[1].set_ylabel("Count")
-    axes[1].set_xlabel("Age Group")
+    age_rate = df2.groupby("AgeGroup", observed=True)["Survived"].mean().mul(100)
+    colors = [COLORS["green"] if v > 40 else COLORS["accent"] if v > 30 else COLORS["red"]
+              for v in age_rate.values]
+    age_rate.plot(kind="bar", ax=axes[0], color=colors, edgecolor="white", linewidth=1)
+    axes[0].set_title("Survival Rate by Age Group", fontweight="700", fontsize=FONTSIZE["title"])
+    _style_axes(axes[0], xlabel="Age Group", ylabel="Survival Rate (%)")
+    _add_bar_labels(axes[0], fmt="{:.1f}%")
+
+    age_count = df2.groupby("AgeGroup", observed=True)["Survived"].count()
+    age_count.plot(kind="bar", ax=axes[1], color=COLORS["purple"], edgecolor="white", linewidth=1)
+    axes[1].set_title("Passenger Count by Age Group", fontweight="700", fontsize=FONTSIZE["title"])
+    _style_axes(axes[1], xlabel="Age Group", ylabel="Count")
+    _add_bar_labels(axes[1], fmt="{:.0f}")
+
     fig.tight_layout()
     return _save(fig, "age_bins.png")
 
 def chart_fare_survival_bins(df):
+    fig, axes = plt.subplots(1, 2, figsize=(16, 5))
+    fig.patch.set_facecolor("#fafbfc")
     df2 = df.copy()
-    df2["FareGroup"] = pd.qcut(df2["Fare"], q=5, labels=["Q1\n(Lowest)", "Q2", "Q3", "Q4", "Q5\n(Highest)"])
-    fig, axes = plt.subplots(1, 2, figsize=(14, 4))
-    df2.groupby("FareGroup", observed=True)["Survived"].mean().mul(100).plot(
-        kind="bar", ax=axes[0], color=COLORS["green"])
-    axes[0].set_title("Survival Rate by Fare Quintile", fontweight="bold")
-    axes[0].set_ylabel("Survival Rate (%)")
-    axes[0].set_xlabel("Fare Group")
+    df2["FareGroup"] = pd.qcut(df2["Fare"], q=5,
+                               labels=["Q1\n(Lowest)", "Q2", "Q3", "Q4", "Q5\n(Highest)"])
 
-    df2.groupby("FareGroup", observed=True)["Survived"].count().plot(
-        kind="bar", ax=axes[1], color=COLORS["accent"])
-    axes[1].set_title("Passenger Count by Fare Quintile", fontweight="bold")
-    axes[1].set_ylabel("Count")
-    axes[1].set_xlabel("Fare Group")
+    fare_rate = df2.groupby("FareGroup", observed=True)["Survived"].mean().mul(100)
+    colors = [COLORS["green"] if v > 50 else COLORS["accent"] if v > 35 else COLORS["red"]
+              for v in fare_rate.values]
+    fare_rate.plot(kind="bar", ax=axes[0], color=colors, edgecolor="white", linewidth=1)
+    axes[0].set_title("Survival Rate by Fare Quintile", fontweight="700", fontsize=FONTSIZE["title"])
+    _style_axes(axes[0], xlabel="Fare Group", ylabel="Survival Rate (%)")
+    _add_bar_labels(axes[0], fmt="{:.1f}%")
+
+    fare_count = df2.groupby("FareGroup", observed=True)["Survived"].count()
+    fare_count.plot(kind="bar", ax=axes[1], color=COLORS["accent"], edgecolor="white", linewidth=1)
+    axes[1].set_title("Passenger Count by Fare Quintile", fontweight="700", fontsize=FONTSIZE["title"])
+    _style_axes(axes[1], xlabel="Fare Group", ylabel="Count")
+    _add_bar_labels(axes[1], fmt="{:.0f}")
+
     fig.tight_layout()
     return _save(fig, "fare_bins.png")
 
 def chart_class_gender(df):
-    fig, ax = plt.subplots(figsize=(8, 4))
-    pd.crosstab([df["Pclass"], df["Sex"]], df["Survived"], normalize="index").mul(100).plot(
-        kind="bar", ax=ax, color=[COLORS["red"], COLORS["green"]], width=0.6)
-    ax.set_title("Survival Rate by Class & Gender", fontweight="bold")
-    ax.set_ylabel("Survival Rate (%)")
-    ax.set_xticklabels(["1st-F", "1st-M", "2nd-F", "2nd-M", "3rd-F", "3rd-M"], rotation=0)
-    ax.legend(["Perished", "Survived"])
+    fig, ax = plt.subplots(figsize=(10, 5))
+    fig.patch.set_facecolor("#fafbfc")
+    cg = pd.crosstab([df["Pclass"], df["Sex"]], df["Survived"], normalize="index").mul(100)
+    cg.plot(kind="bar", ax=ax, color=[COLORS["red"], COLORS["green"]],
+            width=0.6, edgecolor="white", linewidth=1, legend=False)
+    ax.set_title("Survival Rate by Class & Gender", fontweight="700", fontsize=FONTSIZE["title"])
+    _style_axes(ax, ylabel="Survival Rate (%)")
+    labels = ["1st-F", "1st-M", "2nd-F", "2nd-M", "3rd-F", "3rd-M"]
+    ax.set_xticklabels(labels, rotation=0, fontsize=FONTSIZE["tick"])
+    ax.legend(["Perished", "Survived"], fontsize=FONTSIZE["tick"], frameon=True,
+              facecolor="white", edgecolor="#d1d5db")
+    _add_bar_labels(ax, fmt="{:.1f}%")
     fig.tight_layout()
     return _save(fig, "class_gender.png")
 
 def chart_title_survival(df):
     df2 = df.copy()
     df2["Title"] = extract_titles(df)
-    fig, ax = plt.subplots(figsize=(9, 4))
     title_data = df2.groupby("Title")["Survived"].agg(["count", "mean"]).assign(
         survival_rate=lambda x: x["mean"].mul(100)).sort_values("count", ascending=False)
-    title_data["survival_rate"].plot(kind="bar", ax=ax, color=COLORS["accent"])
-    ax.set_title("Survival Rate by Title", fontweight="bold")
-    ax.set_ylabel("Survival Rate (%)")
-    ax.set_xlabel("Title")
+
+    fig, ax = plt.subplots(figsize=(11, 5))
+    fig.patch.set_facecolor("#fafbfc")
+    colors = [COLORS["green"] if v > 50 else COLORS["accent"] if v > 30 else COLORS["red"]
+              for v in title_data["survival_rate"].values]
+    title_data["survival_rate"].plot(kind="bar", ax=ax, color=colors,
+                                     edgecolor="white", linewidth=1)
+    ax.set_title("Survival Rate by Title", fontweight="700", fontsize=FONTSIZE["title"])
+    _style_axes(ax, xlabel="Title", ylabel="Survival Rate (%)")
+    _add_bar_labels(ax, fmt="{:.1f}%")
     fig.tight_layout()
     return _save(fig, "title_survival.png")
 
 def chart_stacked_survival(df):
-    fig, axes = plt.subplots(1, 3, figsize=(14, 4))
+    fig, axes = plt.subplots(1, 3, figsize=(16, 5))
+    fig.patch.set_facecolor("#fafbfc")
     for i, (col, labels) in enumerate([
         ("Sex", ["Female", "Male"]),
         ("Pclass", ["1st", "2nd", "3rd"]),
@@ -242,75 +349,99 @@ def chart_stacked_survival(df):
     ]):
         ct = pd.crosstab(df[col], df["Survived"])
         ct.plot(kind="bar", stacked=True, ax=axes[i],
-                color=[COLORS["green"], COLORS["red"]])
-        axes[i].set_title(f"Survival by {col}", fontweight="bold")
-        axes[i].set_ylabel("Count")
-        axes[i].set_xticklabels(labels, rotation=0)
-        axes[i].legend(["Survived", "Perished"])
+                color=[COLORS["green"], COLORS["red"]], edgecolor="white", linewidth=1, legend=False)
+        axes[i].set_title(f"Survival by {col}", fontweight="700", fontsize=FONTSIZE["title"])
+        _style_axes(axes[i], ylabel="Count")
+        axes[i].set_xticklabels(labels, rotation=0, fontsize=FONTSIZE["tick"])
+        axes[i].legend(["Survived", "Perished"], fontsize=FONTSIZE["tick"], frameon=True,
+                       facecolor="white", edgecolor="#d1d5db")
+        for container in axes[i].containers:
+            axes[i].bar_label(container, fmt="{:.0f}", fontsize=8, fontweight="600",
+                              padding=2, color="#1f2937")
     fig.tight_layout()
     return _save(fig, "stacked_survival.png")
 
 def chart_violin_plots(df):
-    fig, axes = plt.subplots(1, 2, figsize=(14, 4))
+    fig, axes = plt.subplots(1, 2, figsize=(16, 5))
+    fig.patch.set_facecolor("#fafbfc")
+
     sns.violinplot(df, x="Pclass", y="Age", hue="Survived", split=True,
-                   ax=axes[0], palette={0: COLORS["red"], 1: COLORS["green"]})
-    axes[0].set_title("Age Distribution: Class x Survival", fontweight="bold")
+                   ax=axes[0], palette=[COLORS["red"], COLORS["green"]],
+                   inner="quart", linewidth=1.5)
+    axes[0].set_title("Age Distribution: Class x Survival", fontweight="700", fontsize=FONTSIZE["title"])
+    _style_axes(axes[0])
     axes[0].set_xticks([0, 1, 2])
-    axes[0].set_xticklabels(["1st", "2nd", "3rd"])
+    axes[0].set_xticklabels(["1st", "2nd", "3rd"], fontsize=FONTSIZE["tick"])
+    axes[0].legend(["Perished", "Survived"], fontsize=FONTSIZE["tick"], frameon=True,
+                   facecolor="white", edgecolor="#d1d5db")
 
     sns.violinplot(df, x="Pclass", y="Fare", hue="Survived", split=True,
-                   ax=axes[1], palette={0: COLORS["red"], 1: COLORS["green"]})
-    axes[1].set_title("Fare Distribution: Class x Survival", fontweight="bold")
+                   ax=axes[1], palette=[COLORS["red"], COLORS["green"]],
+                   inner="quart", linewidth=1.5)
+    axes[1].set_title("Fare Distribution: Class x Survival", fontweight="700", fontsize=FONTSIZE["title"])
+    _style_axes(axes[1])
     axes[1].set_xticks([0, 1, 2])
-    axes[1].set_xticklabels(["1st", "2nd", "3rd"])
+    axes[1].set_xticklabels(["1st", "2nd", "3rd"], fontsize=FONTSIZE["tick"])
+    axes[1].legend(["Perished", "Survived"], fontsize=FONTSIZE["tick"], frameon=True,
+                   facecolor="white", edgecolor="#d1d5db")
+    axes[1].yaxis.set_major_formatter(mticker.FormatStrFormatter("$%.0f"))
+
     fig.tight_layout()
     return _save(fig, "violin_plots.png")
 
 def chart_age_gender_survival(df):
-    fig, axes = plt.subplots(1, 2, figsize=(14, 4))
-    for sex in ["female", "male"]:
+    fig, axes = plt.subplots(1, 2, figsize=(16, 5))
+    fig.patch.set_facecolor("#fafbfc")
+    for i, sex in enumerate(["female", "male"]):
         subset = df[df["Sex"] == sex]
-        sns.histplot(subset, x="Age", hue="Survived", ax=axes[0 if sex == "female" else 1],
-                     kde=True, palette={0: COLORS["red"], 1: COLORS["green"]},
-                     edgecolor="white", alpha=0.6)
-        axes[0 if sex == "female" else 1].set_title(
-            f"Age Distribution by Survival ({sex.capitalize()})", fontweight="bold")
-        axes[0 if sex == "female" else 1].set_xlabel("Age")
-        axes[0 if sex == "female" else 1].legend(["Perished", "Survived"])
+        sns.histplot(subset, x="Age", hue="Survived", ax=axes[i],
+                     kde=True, palette=[COLORS["red"], COLORS["green"]],
+                     edgecolor="white", linewidth=0.5, alpha=0.7, bins=20)
+        axes[i].set_title(f"Age Distribution by Survival ({sex.capitalize()})",
+                          fontweight="700", fontsize=FONTSIZE["title"])
+        _style_axes(axes[i], xlabel="Age")
+        axes[i].legend(["Perished", "Survived"], fontsize=FONTSIZE["tick"], frameon=True,
+                       facecolor="white", edgecolor="#d1d5db")
     fig.tight_layout()
     return _save(fig, "age_gender_survival.png")
 
 def chart_pairwise_scatter(df):
     numeric = df[["Age", "Fare", "SibSp", "Parch", "Survived"]].dropna()
-    fig, axes = plt.subplots(2, 2, figsize=(10, 8))
+    fig, axes = plt.subplots(2, 2, figsize=(11, 9))
+    fig.patch.set_facecolor("#fafbfc")
     pairs = [("Age", "Fare"), ("Age", "SibSp"), ("Fare", "Parch"), ("SibSp", "Parch")]
     for ax, (x, y) in zip(axes.flat, pairs):
         for surv, clr in [(0, COLORS["red"]), (1, COLORS["green"])]:
             subset = numeric[numeric["Survived"] == surv]
-            ax.scatter(subset[x], subset[y], c=clr, alpha=0.5, s=15,
+            ax.scatter(subset[x], subset[y], c=clr, alpha=0.4, s=20,
+                       edgecolors="white", linewidth=0.5,
                        label="Survived" if surv == 1 else "Perished")
-        ax.set_xlabel(x)
-        ax.set_ylabel(y)
-        ax.legend(fontsize=7)
-    fig.suptitle("Pairwise Scatter by Survival", fontweight="bold", fontsize=13)
+        _style_axes(ax, xlabel=x, ylabel=y)
+        ax.legend(fontsize=8, frameon=True, facecolor="white", edgecolor="#d1d5db")
+    fig.suptitle("Pairwise Scatter by Survival", fontweight="700", fontsize=FONTSIZE["title"] + 1, y=0.98)
     fig.tight_layout()
     return _save(fig, "pairwise_scatter.png")
 
 def chart_sibsp_parch_survival(df):
-    fig, axes = plt.subplots(1, 2, figsize=(14, 4))
-    df.groupby("SibSp")["Survived"].agg(["count", "mean"]).assign(
-        rate=lambda x: x["mean"].mul(100)).plot(
-        y="rate", kind="bar", ax=axes[0], color=COLORS["accent"])
-    axes[0].set_title("Survival Rate by Siblings/Spouses", fontweight="bold")
-    axes[0].set_ylabel("Survival Rate (%)")
-    axes[0].set_xlabel("SibSp")
+    fig, axes = plt.subplots(1, 2, figsize=(16, 5))
+    fig.patch.set_facecolor("#fafbfc")
 
-    df.groupby("Parch")["Survived"].agg(["count", "mean"]).assign(
-        rate=lambda x: x["mean"].mul(100)).plot(
-        y="rate", kind="bar", ax=axes[1], color=COLORS["purple"])
-    axes[1].set_title("Survival Rate by Parents/Children", fontweight="bold")
-    axes[1].set_ylabel("Survival Rate (%)")
-    axes[1].set_xlabel("Parch")
+    sibsp_data = df.groupby("SibSp")["Survived"].mean().mul(100)
+    colors = [COLORS["green"] if v > 40 else COLORS["accent"] if v > 30 else COLORS["red"]
+              for v in sibsp_data.values]
+    sibsp_data.plot(kind="bar", ax=axes[0], color=colors, edgecolor="white", linewidth=1)
+    axes[0].set_title("Survival Rate by Siblings/Spouses", fontweight="700", fontsize=FONTSIZE["title"])
+    _style_axes(axes[0], xlabel="SibSp", ylabel="Survival Rate (%)")
+    _add_bar_labels(axes[0], fmt="{:.1f}%")
+
+    parch_data = df.groupby("Parch")["Survived"].mean().mul(100)
+    colors = [COLORS["green"] if v > 40 else COLORS["accent"] if v > 30 else COLORS["red"]
+              for v in parch_data.values]
+    parch_data.plot(kind="bar", ax=axes[1], color=colors, edgecolor="white", linewidth=1)
+    axes[1].set_title("Survival Rate by Parents/Children", fontweight="700", fontsize=FONTSIZE["title"])
+    _style_axes(axes[1], xlabel="Parch", ylabel="Survival Rate (%)")
+    _add_bar_labels(axes[1], fmt="{:.1f}%")
+
     fig.tight_layout()
     return _save(fig, "sibsp_parch_survival.png")
 
@@ -320,11 +451,13 @@ class PDF(FPDF):
         if self.page_no() == 1:
             return
         self.set_font("Helvetica", "I", 8)
-        self.set_text_color(100, 100, 100)
-        self.cell(0, 10, "Titanic EDA Report", align="L")
-        self.cell(0, 10, f"Page {self.page_no()}", align="R", new_x="LMARGIN", new_y="NEXT")
-        self.line(10, 18, 200, 18)
-        self.ln(5)
+        self.set_text_color(150, 150, 150)
+        self.cell(95, 8, "Titanic EDA Report", align="L")
+        self.cell(95, 8, f"Page {self.page_no()}", align="R", new_x="LMARGIN", new_y="NEXT")
+        self.set_draw_color(59, 130, 246)
+        self.set_line_width(0.5)
+        self.line(10, self.get_y(), 200, self.get_y())
+        self.ln(3)
 
     def footer(self):
         self.set_y(-15)
@@ -335,16 +468,20 @@ class PDF(FPDF):
     def section_title(self, title):
         self.set_font("Helvetica", "B", 16)
         self.set_text_color(30, 58, 95)
-        self.cell(0, 14, title, new_x="LMARGIN", new_y="NEXT")
-        self.set_draw_color(59, 130, 246)
-        self.set_line_width(0.8)
-        self.line(10, self.get_y(), 200, self.get_y())
-        self.ln(4)
+        y = self.get_y()
+        self.set_fill_color(241, 245, 249)
+        self.rect(10, y, 190, 12, "F")
+        self.set_xy(12, y + 1)
+        self.cell(186, 10, title, new_x="LMARGIN", new_y="NEXT")
+        self.set_y(y + 16)
 
     def sub_title(self, title):
-        self.set_font("Helvetica", "B", 14)
+        self.set_font("Helvetica", "B", 13)
         self.set_text_color(59, 130, 246)
-        self.cell(0, 10, title, new_x="LMARGIN", new_y="NEXT")
+        self.cell(0, 9, title, new_x="LMARGIN", new_y="NEXT")
+        self.set_draw_color(203, 213, 225)
+        self.set_line_width(0.3)
+        self.line(10, self.get_y(), 200, self.get_y())
         self.ln(2)
 
     def body_text(self, text):
@@ -356,29 +493,33 @@ class PDF(FPDF):
     def bullet(self, text):
         self.set_font("Helvetica", "", 10)
         self.set_text_color(30, 41, 59)
+        x = self.get_x()
         self.cell(5, 5.5, "-")
-        self.multi_cell(0, 5.5, f" {text}")
+        self.multi_cell(180, 5.5, f" {text}")
+        self.set_x(x)
         self.ln(1)
 
     def stat_box(self, label, value, color=(59, 130, 246)):
         w = 45
         x = self.get_x()
-        self.set_fill_color(*color)
+        y = self.get_y()
+        self.set_fill_color(*[int(c * 0.08) for c in color])
         self.set_draw_color(*color)
-        self.rect(x, self.get_y(), w, 18, "D")
-        self.set_font("Helvetica", "B", 14)
+        self.set_line_width(0.8)
+        self.rect(x, y, w, 20, "DF")
+        self.set_font("Helvetica", "B", 16)
         self.set_text_color(*color)
-        self.set_xy(x + 2, self.get_y() + 2)
-        self.cell(w - 4, 8, str(value), align="C", new_x="LMARGIN", new_y="NEXT")
+        self.set_xy(x + 2, y + 2)
+        self.cell(w - 4, 10, str(value), align="C", new_x="LMARGIN", new_y="NEXT")
         self.set_font("Helvetica", "", 8)
         self.set_text_color(100, 100, 100)
         self.set_xy(x + 2, self.get_y())
         self.cell(w - 4, 6, label, align="C", new_x="LMARGIN", new_y="NEXT")
-        self.set_xy(x + w + 3, self.get_y() - 18)
+        self.set_xy(x + w + 3, y)
 
     def add_image(self, path, w=190):
         self.image(str(path), x=(210 - w) / 2, w=w)
-        self.ln(4)
+        self.ln(3)
 
     def add_table(self, headers, rows, col_widths=None):
         if col_widths is None:
@@ -393,6 +534,17 @@ class PDF(FPDF):
         self.set_text_color(30, 41, 59)
         fill = False
         for row in rows:
+            if self.get_y() + 7 > 277:
+                self.add_page()
+                self.set_font("Helvetica", "B", 9)
+                self.set_fill_color(30, 58, 95)
+                self.set_text_color(255, 255, 255)
+                for i, h in enumerate(headers):
+                    self.cell(col_widths[i], 7, h, border=1, fill=True, align="C")
+                self.ln()
+                self.set_font("Helvetica", "", 9)
+                self.set_text_color(30, 41, 59)
+                fill = False
             if fill:
                 self.set_fill_color(241, 245, 249)
             for i, cell in enumerate(row):
@@ -405,30 +557,31 @@ class PDF(FPDF):
         x = self.get_x()
         y = self.get_y()
         w = 190
-        h = 14
-        self.set_fill_color(*[int(c * 0.1) for c in color])
+        h = 16
+        if y + h > 277:
+            self.add_page()
+            y = self.get_y()
+        self.set_fill_color(*[int(c * 0.08) for c in color])
         self.set_draw_color(*color)
-        self.set_line_width(0.5)
+        self.set_line_width(0.8)
         self.rect(x, y, w, h, "DF")
         self.set_font("Helvetica", "B", 9)
         self.set_text_color(*color)
-        self.set_xy(x + 3, y + 1)
-        self.cell(w - 6, 5, title, new_x="LMARGIN", new_y="NEXT")
+        self.set_xy(x + 4, y + 1)
+        self.cell(w - 8, 5, title, new_x="LMARGIN", new_y="NEXT")
         self.set_font("Helvetica", "", 8)
         self.set_text_color(60, 60, 60)
-        self.set_xy(x + 3, y + 6)
-        self.multi_cell(w - 6, 4, text)
-        self.set_y(y + h + 3)
-        self.ln(2)
+        self.set_xy(x + 4, y + 6)
+        self.multi_cell(w - 8, 4, text)
+        self.set_y(y + h + 4)
 
 
 def generate_pdf(df, output_path: Path):
     pdf = PDF()
     pdf.set_auto_page_break(auto=True, margin=20)
 
-    # Cover page
     pdf.add_page()
-    pdf.ln(40)
+    pdf.ln(35)
     pdf.set_font("Helvetica", "B", 36)
     pdf.set_text_color(30, 58, 95)
     pdf.cell(0, 20, "Titanic EDA Report", align="C", new_x="LMARGIN", new_y="NEXT")
@@ -436,18 +589,17 @@ def generate_pdf(df, output_path: Path):
     pdf.set_font("Helvetica", "", 16)
     pdf.set_text_color(100, 100, 100)
     pdf.cell(0, 14, "Exploratory Data Analysis of the Titanic Passenger Dataset", align="C", new_x="LMARGIN", new_y="NEXT")
-    pdf.ln(15)
+    pdf.ln(12)
     pdf.set_draw_color(59, 130, 246)
-    pdf.set_line_width(1)
-    pdf.line(60, pdf.get_y(), 150, pdf.get_y())
-    pdf.ln(15)
+    pdf.set_line_width(1.2)
+    pdf.line(55, pdf.get_y(), 155, pdf.get_y())
+    pdf.ln(12)
     pdf.set_font("Helvetica", "", 11)
     pdf.set_text_color(100, 100, 100)
     pdf.cell(0, 8, f"Dataset: {len(df)} passengers, {len(df.columns)} features", align="C", new_x="LMARGIN", new_y="NEXT")
     pdf.cell(0, 8, f"Survival Rate: {df['Survived'].mean()*100:.1f}%", align="C", new_x="LMARGIN", new_y="NEXT")
     pdf.cell(0, 8, f"Generated: {pd.Timestamp.now().strftime('%B %d, %Y')}", align="C", new_x="LMARGIN", new_y="NEXT")
 
-    # Table of contents
     pdf.add_page()
     pdf.section_title("Table of Contents")
     toc = [
@@ -462,7 +614,7 @@ def generate_pdf(df, output_path: Path):
         ("9", "Family Size Analysis"),
         ("10", "Class & Gender Interaction"),
         ("11", "Title Analysis"),
-        ("14", "SibSp & Parch Survival Patterns"),
+        ("12", "SibSp & Parch Survival Patterns"),
         ("13", "Correlation Analysis"),
         ("14", "Statistical Tests & Significance"),
         ("15", "Key Findings & Conclusion"),
@@ -476,7 +628,6 @@ def generate_pdf(df, output_path: Path):
         pdf.cell(0, 8, title, new_x="LMARGIN", new_y="NEXT")
         pdf.ln(2)
 
-    # Generate all charts
     print("Generating charts...")
     chart_survival_overview(df)
     chart_age_analysis(df)
@@ -496,7 +647,6 @@ def generate_pdf(df, output_path: Path):
     chart_sibsp_parch_survival(df)
     print("Charts generated.")
 
-    # 1. Executive Summary
     pdf.add_page()
     pdf.section_title("1. Executive Summary")
     pdf.body_text(
@@ -517,9 +667,8 @@ def generate_pdf(df, output_path: Path):
         pdf.stat_box(label, value)
         if i < len(stats) - 1:
             pdf.cell(5)
-    pdf.ln(22)
+    pdf.ln(24)
 
-    # 2. Dataset Overview
     pdf.add_page()
     pdf.section_title("2. Dataset Overview")
     pdf.body_text(
@@ -558,7 +707,6 @@ def generate_pdf(df, output_path: Path):
         [25, 20, 20, 20, 20, 20, 20, 20, 25],
     )
 
-    # 3. Missing Values
     pdf.add_page()
     pdf.section_title("3. Missing Value Analysis")
     pdf.body_text(
@@ -566,7 +714,7 @@ def generate_pdf(df, output_path: Path):
         "missing values, with Occupation being the most severely affected at 47.4% missing."
     )
     missing = missing_summary(df)
-    pdf.add_image(CHART_DIR / "missing_values.png", w=140)
+    pdf.add_image(CHART_DIR / "missing_values.png", w=150)
     pdf.sub_title("Missing Value Details")
     rows = []
     for col_name, row in missing.iterrows():
@@ -583,7 +731,6 @@ def generate_pdf(df, output_path: Path):
         "Embarked values can be filled with the mode (Southampton)."
     )
 
-    # 4. Survival Analysis
     pdf.add_page()
     pdf.section_title("4. Survival Analysis")
     pdf.body_text(
@@ -616,7 +763,6 @@ def generate_pdf(df, output_path: Path):
     )
     pdf.add_image(CHART_DIR / "stacked_survival.png", w=190)
 
-    # 5. Demographic Analysis
     pdf.add_page()
     pdf.section_title("5. Demographic Analysis")
     pdf.sub_title("Passenger Distribution by Class")
@@ -640,7 +786,6 @@ def generate_pdf(df, output_path: Path):
         pct = count / len(df) * 100
         pdf.bullet(f"{sex.capitalize()}: {count} passengers ({pct:.1f}%)")
 
-    # 6. Age Analysis
     pdf.add_page()
     pdf.section_title("6. Age Analysis")
     pdf.body_text(
@@ -675,7 +820,6 @@ def generate_pdf(df, output_path: Path):
         "survival rates, while male children also fared better than adult males."
     )
 
-    # 7. Fare Analysis
     pdf.add_page()
     pdf.section_title("7. Fare Analysis")
     pdf.body_text(
@@ -703,7 +847,6 @@ def generate_pdf(df, output_path: Path):
         "62.2%, while the lowest quintile had only 25.7% survival."
     )
 
-    # 8. Embarkation Port Analysis
     pdf.add_page()
     pdf.section_title("8. Embarkation Port Analysis")
     pdf.body_text(
@@ -724,7 +867,6 @@ def generate_pdf(df, output_path: Path):
         "port, had the lowest rate (33.4%) due to its large third-class population."
     )
 
-    # 9. Family Size Analysis
     pdf.add_page()
     pdf.section_title("9. Family Size Analysis")
     pdf.body_text(
@@ -743,7 +885,6 @@ def generate_pdf(df, output_path: Path):
         [60, 60, 70],
     )
 
-    # 10. Class & Gender Interaction
     pdf.add_page()
     pdf.section_title("10. Class & Gender Interaction")
     pdf.body_text(
@@ -759,7 +900,6 @@ def generate_pdf(df, output_path: Path):
         [95, 95],
     )
 
-    # 11. Title Analysis
     pdf.add_page()
     pdf.section_title("11. Title Analysis")
     pdf.body_text(
@@ -778,9 +918,8 @@ def generate_pdf(df, output_path: Path):
         [60, 60, 70],
     )
 
-    # 14. SibSp & Parch Survival
     pdf.add_page()
-    pdf.section_title("14. SibSp & Parch Survival Patterns")
+    pdf.section_title("12. SibSp & Parch Survival Patterns")
     pdf.body_text(
         "The number of siblings/spouses (SibSp) and parents/children (Parch) aboard "
         "show non-linear relationships with survival. Having 1-2 siblings or 1-3 "
@@ -809,7 +948,6 @@ def generate_pdf(df, output_path: Path):
         "survived at 50-55% rates, while solo travelers had only 34.5% survival."
     )
 
-    # 13. Correlation Analysis
     pdf.add_page()
     pdf.section_title("13. Correlation Analysis")
     pdf.body_text(
@@ -836,7 +974,6 @@ def generate_pdf(df, output_path: Path):
         "are more concentrated in lower fare and older age brackets."
     )
 
-    # 14. Statistical Tests
     pdf.add_page()
     pdf.section_title("14. Statistical Tests & Significance")
     pdf.body_text(
@@ -954,7 +1091,6 @@ def generate_pdf(df, output_path: Path):
         [40, 25, 35, 90],
     )
 
-    # 15. Key Findings
     pdf.add_page()
     pdf.section_title("15. Key Findings & Conclusion")
     pdf.sub_title("Summary of Findings")
