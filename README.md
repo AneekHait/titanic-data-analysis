@@ -8,7 +8,7 @@ Exploratory Data Analysis of the Titanic passenger dataset — a structured Pyth
 git clone https://github.com/AneekHait/titanic-data-analysis.git
 cd titanic-data-analysis
 make install       # install dependencies
-make download      # fetch the dataset (891 passengers)
+make download      # fetch the dataset (1,309 passengers)
 make eda           # run full analysis + generate 8 charts
 ```
 
@@ -95,13 +95,13 @@ A 14-page professional report with:
 | Factor | Finding |
 |---|---|
 | **Overall** | Only 38.4% of passengers survived |
-| **Gender** | Women: 74.2% survival vs Men: 18.9% |
-| **Class** | 1st: 63.0%, 2nd: 47.3%, 3rd: 24.2% |
-| **Age** | Children (0-16): 55.0% survival |
-| **Fare** | Top quintile: 64.7-100% survival |
-| **Port** | Cherbourg: 55.4% (highest) |
+| **Gender** | Women: 72.8% survival vs Men: 19.1% |
+| **Class** | 1st: 62.0%, 2nd: 42.8%, 3rd: 25.5% |
+| **Age** | Children (0-16): 49.0% survival |
+| **Fare** | Top quintile ($42-$512): 62.2% survival |
+| **Port** | Cherbourg: 56.6% (highest) |
 | **Family** | Small families (2-4) had best odds |
-| **Title** | Mrs: 79.5%, Mr: 15.7% |
+| **Title** | Mrs: 78.2%, Mr: 16.2% |
 
 ## Tech Stack
 
@@ -125,11 +125,12 @@ A 14-page professional report with:
 
 ## Dataset
 
-Source: [Kaggle Titanic Dataset](https://www.kaggle.com/c/titanic/data)
+Source: [titanic5 — Vanderbilt Biostatistics](https://hbiostat.org/data/repo/titanic5.csv) (Encyclopedia Titanica)
 
-- **891 passengers**, 12 features
-- Features: PassengerId, Survived, Pclass, Name, Sex, Age, SibSp, Parch, Ticket, Fare, Cabin, Embarked
-- Missing values: Cabin (77.1%), Age (19.9%), Embarked (0.2%)
+- **1,309 passengers**, 14 features
+- Features: PassengerId, Survived, Pclass, Name, Sex, Age, SibSp, Parch, Ticket, Fare, Embarked, Occupation, BoatBody, NameId
+- Missing values: Occupation (47.4%), Age (3.9%)
+- 47% more data than the Kaggle train set, with 5x fewer missing ages
 
 ## License
 
