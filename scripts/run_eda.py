@@ -30,13 +30,13 @@ from src.visualization.plots import (
 @click.option("--data", default=None, help="Path to CSV file")
 @click.option("--no-plots", is_flag=True, help="Skip generating plots")
 def main(data: str | None, no_plots: bool) -> None:
-    path = DATA_RAW / "titanic.csv" if data is None else data
+    path = DATA_RAW / "titanic5.csv" if data is None else data
     df = load_titanic(path)
 
     sep = "─" * 56
 
     print(f"\n{sep}")
-    print("  TITANIC — EXPLORATORY DATA ANALYSIS")
+    print("  TITANIC — EXPLORATORY DATA ANALYSIS (titanic5)")
     print(f"{sep}\n")
 
     overview = data_overview(df)
@@ -77,11 +77,9 @@ def main(data: str | None, no_plots: bool) -> None:
             path = plot_categorical_survival(df, col)
             print(f"    ✓ {path.name}")
 
-        for name, func in [("survival_rate.png", plot_survival_rate),
-                            ("age_distribution.png", plot_age_distribution),
-                            ("fare_distribution.png", plot_fare_distribution),
-                            ("correlation_heatmap.png", plot_correlation_heatmap),
-                            ("pairgrid.png", plot_pairgrid)]:
+        for func in [plot_survival_rate, plot_age_distribution,
+                     plot_fare_distribution, plot_correlation_heatmap,
+                     plot_pairgrid]:
             path = func(df)
             print(f"    ✓ {path.name}")
 
@@ -119,7 +117,8 @@ def main(data: str | None, no_plots: bool) -> None:
   4. Children (age < 10) had higher survival rates.
   5. Passengers who paid higher fares were more likely to survive.
   6. Passengers embarking from Cherbourg (C) had higher survival rates.
-  7. Age and Fare have significant missing values that need handling.
+  7. Age has only 51 missing values (3.9%) — far better than the Kaggle version.
+  8. Dataset includes 1,309 passengers (47% more than Kaggle train set).
   """)
 
 

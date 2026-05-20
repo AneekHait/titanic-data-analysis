@@ -87,7 +87,7 @@ def chart_survival_overview(df):
     return _save(fig, "survival_overview.png")
 
 def chart_age_analysis(df):
-    fig, axes = plt.subplots(1, 2, figsize=(12, 4))
+    fig, axes = plt.subplots(1, 2, figsize=(14, 4))
     sns.histplot(df, x="Age", hue="Survived", ax=axes[0], kde=True,
                  palette={0: COLORS["red"], 1: COLORS["green"]}, edgecolor="white")
     axes[0].set_title("Age Distribution by Survival", fontweight="bold")
@@ -102,7 +102,7 @@ def chart_age_analysis(df):
     return _save(fig, "age_analysis.png")
 
 def chart_fare_analysis(df):
-    fig, axes = plt.subplots(1, 2, figsize=(12, 4))
+    fig, axes = plt.subplots(1, 2, figsize=(14, 4))
     sns.histplot(df, x="Fare", hue="Survived", ax=axes[0], kde=True,
                  palette={0: COLORS["red"], 1: COLORS["green"]}, edgecolor="white")
     axes[0].set_title("Fare Distribution by Survival", fontweight="bold")
@@ -117,25 +117,25 @@ def chart_fare_analysis(df):
     return _save(fig, "fare_analysis.png")
 
 def chart_embarked_analysis(df):
-    fig, axes = plt.subplots(1, 2, figsize=(12, 4))
+    fig, axes = plt.subplots(1, 2, figsize=(14, 4))
     pd.crosstab(df["Embarked"], df["Survived"], normalize="index").mul(100).plot(
         kind="bar", ax=axes[0], color=[COLORS["red"], COLORS["green"]], width=0.6)
     axes[0].set_title("Survival Rate by Embarked Port", fontweight="bold")
     axes[0].set_ylabel("Rate (%)")
-    axes[0].set_xticklabels(["Cherbourg", "Queenstown", "Southampton"], rotation=0)
+    axes[0].set_xticklabels(["Cherbourg", "Queenstown", "Southampton", "Belfast"], rotation=0)
     axes[0].legend(["Perished", "Survived"])
 
     df["Embarked"].value_counts().plot(kind="bar", ax=axes[1], color=COLORS["accent"])
     axes[1].set_title("Passenger Count by Port", fontweight="bold")
     axes[1].set_ylabel("Count")
-    axes[1].set_xticklabels(["Cherbourg", "Queenstown", "Southampton"], rotation=0)
+    axes[1].set_xticklabels(["Cherbourg", "Queenstown", "Southampton", "Belfast"], rotation=0)
     fig.tight_layout()
     return _save(fig, "embarked_analysis.png")
 
 def chart_family_survival(df):
     df2 = df.copy()
     df2["FamilySize"] = df2["SibSp"] + df2["Parch"] + 1
-    fig, axes = plt.subplots(1, 2, figsize=(12, 4))
+    fig, axes = plt.subplots(1, 2, figsize=(14, 4))
     df2.groupby("FamilySize")["Survived"].mean().mul(100).plot(kind="bar", ax=axes[0], color=COLORS["accent"])
     axes[0].set_title("Survival Rate by Family Size", fontweight="bold")
     axes[0].set_ylabel("Survival Rate (%)")
@@ -175,7 +175,7 @@ def chart_missing_values(df):
 def chart_age_survival_bins(df):
     df2 = df.copy()
     df2["AgeGroup"] = pd.cut(df2["Age"], bins=[0, 16, 32, 48, 64, 80], labels=["0-16", "17-32", "33-48", "49-64", "65-80"])
-    fig, axes = plt.subplots(1, 2, figsize=(12, 4))
+    fig, axes = plt.subplots(1, 2, figsize=(14, 4))
     df2.groupby("AgeGroup", observed=True)["Survived"].mean().mul(100).plot(
         kind="bar", ax=axes[0], color=COLORS["accent"])
     axes[0].set_title("Survival Rate by Age Group", fontweight="bold")
@@ -193,7 +193,7 @@ def chart_age_survival_bins(df):
 def chart_fare_survival_bins(df):
     df2 = df.copy()
     df2["FareGroup"] = pd.qcut(df2["Fare"], q=5, labels=["Q1\n(Lowest)", "Q2", "Q3", "Q4", "Q5\n(Highest)"])
-    fig, axes = plt.subplots(1, 2, figsize=(12, 4))
+    fig, axes = plt.subplots(1, 2, figsize=(14, 4))
     df2.groupby("FareGroup", observed=True)["Survived"].mean().mul(100).plot(
         kind="bar", ax=axes[0], color=COLORS["green"])
     axes[0].set_title("Survival Rate by Fare Quintile", fontweight="bold")
@@ -237,7 +237,7 @@ def chart_stacked_survival(df):
     for i, (col, labels) in enumerate([
         ("Sex", ["Female", "Male"]),
         ("Pclass", ["1st", "2nd", "3rd"]),
-        ("Embarked", ["C", "Q", "S"]),
+        ("Embarked", ["C", "Q", "S", "B"]),
     ]):
         ct = pd.crosstab(df[col], df["Survived"])
         ct.plot(kind="bar", stacked=True, ax=axes[i],
@@ -250,21 +250,23 @@ def chart_stacked_survival(df):
     return _save(fig, "stacked_survival.png")
 
 def chart_violin_plots(df):
-    fig, axes = plt.subplots(1, 2, figsize=(12, 4))
+    fig, axes = plt.subplots(1, 2, figsize=(14, 4))
     sns.violinplot(df, x="Pclass", y="Age", hue="Survived", split=True,
                    ax=axes[0], palette={0: COLORS["red"], 1: COLORS["green"]})
     axes[0].set_title("Age Distribution: Class x Survival", fontweight="bold")
+    axes[0].set_xticks([0, 1, 2])
     axes[0].set_xticklabels(["1st", "2nd", "3rd"])
 
     sns.violinplot(df, x="Pclass", y="Fare", hue="Survived", split=True,
                    ax=axes[1], palette={0: COLORS["red"], 1: COLORS["green"]})
     axes[1].set_title("Fare Distribution: Class x Survival", fontweight="bold")
+    axes[1].set_xticks([0, 1, 2])
     axes[1].set_xticklabels(["1st", "2nd", "3rd"])
     fig.tight_layout()
     return _save(fig, "violin_plots.png")
 
 def chart_age_gender_survival(df):
-    fig, axes = plt.subplots(1, 2, figsize=(12, 4))
+    fig, axes = plt.subplots(1, 2, figsize=(14, 4))
     for sex in ["female", "male"]:
         subset = df[df["Sex"] == sex]
         sns.histplot(subset, x="Age", hue="Survived", ax=axes[0 if sex == "female" else 1],
@@ -294,7 +296,7 @@ def chart_pairwise_scatter(df):
     return _save(fig, "pairwise_scatter.png")
 
 def chart_sibsp_parch_survival(df):
-    fig, axes = plt.subplots(1, 2, figsize=(12, 4))
+    fig, axes = plt.subplots(1, 2, figsize=(14, 4))
     df.groupby("SibSp")["Survived"].agg(["count", "mean"]).assign(
         rate=lambda x: x["mean"].mul(100)).plot(
         y="rate", kind="bar", ax=axes[0], color=COLORS["accent"])
@@ -332,14 +334,14 @@ class PDF(FPDF):
     def section_title(self, title):
         self.set_font("Helvetica", "B", 16)
         self.set_text_color(30, 58, 95)
-        self.cell(0, 12, title, new_x="LMARGIN", new_y="NEXT")
+        self.cell(0, 14, title, new_x="LMARGIN", new_y="NEXT")
         self.set_draw_color(59, 130, 246)
         self.set_line_width(0.8)
         self.line(10, self.get_y(), 200, self.get_y())
         self.ln(4)
 
     def sub_title(self, title):
-        self.set_font("Helvetica", "B", 12)
+        self.set_font("Helvetica", "B", 14)
         self.set_text_color(59, 130, 246)
         self.cell(0, 10, title, new_x="LMARGIN", new_y="NEXT")
         self.ln(2)
@@ -402,7 +404,7 @@ class PDF(FPDF):
         x = self.get_x()
         y = self.get_y()
         w = 190
-        h = 12
+        h = 14
         self.set_fill_color(*[int(c * 0.1) for c in color])
         self.set_draw_color(*color)
         self.set_line_width(0.5)
@@ -432,7 +434,7 @@ def generate_pdf(df, output_path: Path):
     pdf.ln(5)
     pdf.set_font("Helvetica", "", 16)
     pdf.set_text_color(100, 100, 100)
-    pdf.cell(0, 12, "Exploratory Data Analysis of the Titanic Passenger Dataset", align="C", new_x="LMARGIN", new_y="NEXT")
+    pdf.cell(0, 14, "Exploratory Data Analysis of the Titanic Passenger Dataset", align="C", new_x="LMARGIN", new_y="NEXT")
     pdf.ln(15)
     pdf.set_draw_color(59, 130, 246)
     pdf.set_line_width(1)
@@ -459,7 +461,7 @@ def generate_pdf(df, output_path: Path):
         ("9", "Family Size Analysis"),
         ("10", "Class & Gender Interaction"),
         ("11", "Title Analysis"),
-        ("12", "SibSp & Parch Survival Patterns"),
+        ("14", "SibSp & Parch Survival Patterns"),
         ("13", "Correlation Analysis"),
         ("14", "Statistical Tests & Significance"),
         ("15", "Key Findings & Conclusion"),
@@ -467,7 +469,7 @@ def generate_pdf(df, output_path: Path):
     for num, title in toc:
         pdf.set_font("Helvetica", "B", 11)
         pdf.set_text_color(30, 58, 95)
-        pdf.cell(12, 8, num)
+        pdf.cell(14, 8, num)
         pdf.set_font("Helvetica", "", 11)
         pdf.set_text_color(30, 41, 59)
         pdf.cell(0, 8, title, new_x="LMARGIN", new_y="NEXT")
@@ -498,7 +500,7 @@ def generate_pdf(df, output_path: Path):
     pdf.section_title("1. Executive Summary")
     pdf.body_text(
         "This report presents a comprehensive Exploratory Data Analysis (EDA) of the Titanic "
-        "passenger dataset. The dataset contains information on 891 passengers aboard the RMS "
+        "passenger dataset. The dataset contains information on 1309 passengers aboard the RMS "
         "Titanic, including demographics, ticket class, fare paid, and survival outcome. "
         "The analysis aims to identify patterns, correlations, and factors that influenced "
         "passenger survival during the disaster."
@@ -520,7 +522,7 @@ def generate_pdf(df, output_path: Path):
     pdf.add_page()
     pdf.section_title("2. Dataset Overview")
     pdf.body_text(
-        "The Titanic dataset consists of 891 records with 12 features. Below is a summary "
+        "The Titanic dataset consists of 1309 records with 14 features. Below is a summary "
         "of each column including data types and basic statistics."
     )
     pdf.sub_title("Column Descriptions")
@@ -537,7 +539,7 @@ def generate_pdf(df, output_path: Path):
             ["Parch", "int", "Parents/children aboard"],
             ["Ticket", "str", "Ticket number"],
             ["Fare", "float", "Passenger fare"],
-            ["Cabin", "str", "Cabin number"],
+            ["Occupation", "str", "Occupation number"],
             ["Embarked", "str", "Port of embarkation"],
         ],
         [50, 30, 110],
@@ -560,7 +562,7 @@ def generate_pdf(df, output_path: Path):
     pdf.section_title("3. Missing Value Analysis")
     pdf.body_text(
         "Understanding missing data is critical before any analysis. Three columns contain "
-        "missing values, with Cabin being the most severely affected at 77.1% missing."
+        "missing values, with Occupation being the most severely affected at 47.4% missing."
     )
     missing = missing_summary(df)
     pdf.add_image(CHART_DIR / "missing_values.png", w=140)
@@ -575,7 +577,7 @@ def generate_pdf(df, output_path: Path):
         [50, 40, 40, 60],
     )
     pdf.body_text(
-        "Recommendation: Cabin should be dropped or heavily engineered (e.g., extract deck letter). "
+        "Recommendation: Occupation should be dropped or heavily engineered (e.g., extract deck letter). "
         "Age can be imputed using median values stratified by class and gender. The 2 missing "
         "Embarked values can be filled with the mode (Southampton)."
     )
@@ -642,8 +644,8 @@ def generate_pdf(df, output_path: Path):
     pdf.section_title("6. Age Analysis")
     pdf.body_text(
         "Age is an important factor in survival, with children being given priority "
-        "during evacuation. The average age of passengers was 29.7 years, with 177 "
-        "missing values (19.9%)."
+        "during evacuation. The average age of passengers was 29.7 years, with 51 "
+        "missing values (3.9%)."
     )
     pdf.add_image(CHART_DIR / "age_analysis.png", w=190)
     pdf.sub_title("Age Statistics")
@@ -696,7 +698,7 @@ def generate_pdf(df, output_path: Path):
         [60, 60, 70],
     )
     pdf.body_text(
-        "Passengers in the highest fare quintile ($102-$512) had survival rates of "
+        "Passengers in the highest fare quintile ($102-$514) had survival rates of "
         "64.7% to 100%, while the lowest quintile had only 36.2% survival."
     )
 
@@ -775,9 +777,9 @@ def generate_pdf(df, output_path: Path):
         [60, 60, 70],
     )
 
-    # 12. SibSp & Parch Survival
+    # 14. SibSp & Parch Survival
     pdf.add_page()
-    pdf.section_title("12. SibSp & Parch Survival Patterns")
+    pdf.section_title("14. SibSp & Parch Survival Patterns")
     pdf.body_text(
         "The number of siblings/spouses (SibSp) and parents/children (Parch) aboard "
         "show non-linear relationships with survival. Having 1-2 siblings or 1-3 "
@@ -915,7 +917,7 @@ def generate_pdf(df, output_path: Path):
     pdf.inference_box(
         "Inference",
         "The fare difference between survivors and non-survivors is highly significant. "
-        "Survivors paid an average of $48.40 vs $22.12 for non-survivors. This confirms "
+        "Survivors paid an average of $48.40 vs $22.14 for non-survivors. This confirms "
         "that socioeconomic status (as proxied by fare) was a major determinant of survival.",
         color=(239, 68, 68),
     )
@@ -960,7 +962,7 @@ def generate_pdf(df, output_path: Path):
         "Gender was the strongest predictor of survival: 74.2% of women survived vs. 18.9% of men. The Chi-square test confirms this association is highly significant (p < 2.2e-16), validating the 'women and children first' evacuation protocol.",
         "Ticket class had a major impact: 1st class passengers survived at 63.0% vs. 24.2% for 3rd class. The Chi-square test (p < 2.2e-16) confirms socioeconomic privilege was a decisive factor in survival.",
         "Children (0-16) had a 55.0% survival rate, significantly higher than adults. ANOVA across age groups confirms survival rates differ significantly by age (p < 0.05).",
-        "Higher fare passengers survived at higher rates. The T-test confirms survivors paid significantly more ($48.40 vs $22.12, p < 2.2e-16). The Fare-Survived correlation (r=0.257) is the strongest numerical predictor.",
+        "Higher fare passengers survived at higher rates. The T-test confirms survivors paid significantly more ($48.40 vs $22.14, p < 2.2e-16). The Fare-Survived correlation (r=0.257) is the strongest numerical predictor.",
         "Passengers from Cherbourg had the highest survival rate (55.4%), confounded with class composition. The Chi-square test confirms this association is significant (p < 0.05).",
         "Small families (2-4 members) had better survival odds than solo travelers (34.5%) or large families, suggesting mutual aid during evacuation. The Parch-Survived correlation (r=0.082) indicates a weak but positive family effect.",
         "First-class women had a 96.8% survival rate, while third-class men had only 13.5%, showing the compounding effect of class and gender. This is the most extreme survival disparity in the dataset.",
@@ -968,7 +970,7 @@ def generate_pdf(df, output_path: Path):
         "The Age-Survived T-test (p=0.04) shows survivors were slightly younger on average (28.3 vs 30.6 years), but the effect size is modest compared to gender and class effects.",
         "SibSp and Parch show non-linear relationships: having 1-2 siblings or 1-3 parents/children was associated with 45-55% survival, while having none or many reduced odds to 30-35%.",
         "The SibSp-Age negative correlation (r=-0.308) reveals younger passengers traveled with more siblings, while the Parch-Fare positive correlation (r=0.216) shows families with children paid higher fares.",
-        "Cabin data (77.1% missing) is too sparse for direct analysis, but extracting deck letters could reveal cabin location effects on survival, as upper-deck cabins were closer to lifeboats.",
+        "Occupation data (47.4% missing) is too sparse for direct analysis, but extracting deck letters could reveal cabin location effects on survival, as upper-deck cabins were closer to lifeboats.",
     ]
     for i, finding in enumerate(findings, 1):
         pdf.bullet(finding)
@@ -990,9 +992,9 @@ def generate_pdf(df, output_path: Path):
 
     pdf.sub_title("Limitations & Future Work")
     pdf.body_text(
-        "The Cabin column is 77.1% missing, limiting cabin-based analysis. Age has 19.9% "
+        "The Occupation column is 47.4% missing, limiting cabin-based analysis. Age has 3.9% "
         "missing values that could bias age-related findings. Future work should include "
-        "feature engineering (extracting deck letters from Cabin, imputing Age by class/gender), "
+        "feature engineering (extracting deck letters from Occupation, imputing Age by class/gender), "
         "predictive modeling (Logistic Regression, Random Forest, XGBoost), and SHAP-based "
         "feature importance analysis to quantify each factor's contribution to survival."
     )

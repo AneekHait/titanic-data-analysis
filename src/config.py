@@ -11,4 +11,6 @@ NUM_COLS = ["Age", "Fare", "SibSp", "Parch"]
 CAT_COLS = ["Sex", "Embarked", "Pclass"]
 ID_COL = "PassengerId"
 
-ALL_FEATURES = [TARGET] + NUM_COLS + CAT_COLS + ["Name", "Ticket", "Cabin"]
+NEW_COLS = ["Occupation", "BoatBody", "NameId"]
+
+ALL_FEATURES = [TARGET] + NUM_COLS + CAT_COLS + ["Name", "Ticket"] + NEW_COLS
