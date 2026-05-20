@@ -25,15 +25,16 @@ def safe_num(val):
     return round(val, 1)
 
 def extract_titles(df):
-    titles = df["Name"].apply(lambda x: re.search(r", ([A-Za-z]+)\.", x))
+    titles = df["Name"].apply(lambda x: re.search(r", ([A-Za-z]+) ", x))
     titles = titles.apply(lambda m: m.group(1) if m else "Unknown")
     title_map = {
         "Mr": "Mr", "Mrs": "Mrs", "Miss": "Miss", "Master": "Master",
-        "Dr": "Officer", "Rev": "Officer", "Major": "Officer",
-        "Col": "Officer", "Capt": "Officer", "Mlle": "Miss",
-        "Mme": "Mrs", "Ms": "Miss", "Countess": "Royalty",
+        "Dr": "Officer", "Rev": "Officer", "Revd": "Officer", "Major": "Officer",
+        "Col": "Officer", "Colonel": "Officer", "Capt": "Officer", "Captain": "Officer",
+        "Mlle": "Miss", "Mme": "Mrs", "Ms": "Miss", "Countess": "Royalty",
         "Lady": "Royalty", "Sir": "Royalty", "Don": "Royalty",
-        "Jonkheer": "Royalty", "Dona": "Royalty",
+        "Jonkheer": "Royalty", "Dona": "Royalty", "Sra": "Mrs", "Sr": "Mr",
+        "Fr": "Officer",
     }
     return titles.map(lambda t: title_map.get(t, "Other"))
 
@@ -306,7 +307,7 @@ def generate_dashboard(df, output_path: Path):
                 <h2>💡 Key Insights</h2>
                 <ul>
                     <li>Only <strong>{data['survival_rate']['survived']:.1f}%</strong> of {data['passenger_stats']['total']} passengers survived.</li>
-                    <li><strong>Gender was the strongest predictor</strong> — women survived at {data['survival_by_sex'][1]['survival_rate']:.1f}% vs men at {data['survival_by_sex'][0]['survival_rate']:.1f}%.</li>
+                    <li><strong>Gender was the strongest predictor</strong> — women survived at {data['survival_by_sex'][0]['survival_rate']:.1f}% vs men at {data['survival_by_sex'][1]['survival_rate']:.1f}%.</li>
                     <li><strong>Class hierarchy</strong> — 1st class: {data['survival_by_pclass'][0]['survival_rate']:.1f}%, 2nd: {data['survival_by_pclass'][1]['survival_rate']:.1f}%, 3rd: {data['survival_by_pclass'][2]['survival_rate']:.1f}%.</li>
                     <li><strong>Children (0-16)</strong> had a {data['survival_by_age'][0]['survival_rate']:.1f}% survival rate.</li>
                     <li><strong>Higher fare = better survival</strong> — passengers paying $102-$205 survived at {data['survival_by_fare'][1]['survival_rate']:.1f}%.</li>

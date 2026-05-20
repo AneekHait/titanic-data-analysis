@@ -49,15 +49,16 @@ def _save(fig, name):
     return path
 
 def extract_titles(df):
-    titles = df["Name"].apply(lambda x: re.search(r", ([A-Za-z]+)\.", x))
+    titles = df["Name"].apply(lambda x: re.search(r", ([A-Za-z]+) ", x))
     titles = titles.apply(lambda m: m.group(1) if m else "Unknown")
     title_map = {
         "Mr": "Mr", "Mrs": "Mrs", "Miss": "Miss", "Master": "Master",
-        "Dr": "Officer", "Rev": "Officer", "Major": "Officer",
-        "Col": "Officer", "Capt": "Officer", "Mlle": "Miss",
-        "Mme": "Mrs", "Ms": "Miss", "Countess": "Royalty",
+        "Dr": "Officer", "Rev": "Officer", "Revd": "Officer", "Major": "Officer",
+        "Col": "Officer", "Colonel": "Officer", "Capt": "Officer", "Captain": "Officer",
+        "Mlle": "Miss", "Mme": "Mrs", "Ms": "Miss", "Countess": "Royalty",
         "Lady": "Royalty", "Sir": "Royalty", "Don": "Royalty",
-        "Jonkheer": "Royalty", "Dona": "Royalty",
+        "Jonkheer": "Royalty", "Dona": "Royalty", "Sra": "Mrs", "Sr": "Mr",
+        "Fr": "Officer",
     }
     return titles.map(lambda t: title_map.get(t, "Other"))
 
@@ -599,7 +600,7 @@ def generate_pdf(df, output_path: Path):
         [60, 60, 70],
     )
     pdf.body_text(
-        "Women had a dramatically higher survival rate (74.2%) compared to men (18.9%). "
+        "Women had a dramatically higher survival rate (72.8%) compared to men (19.1%). "
         "This is the strongest single predictor of survival in the dataset."
     )
     pdf.sub_title("Survival by Class")
@@ -610,7 +611,7 @@ def generate_pdf(df, output_path: Path):
         [60, 60, 70],
     )
     pdf.body_text(
-        "First-class passengers survived at 63.0%, compared to only 24.2% for third-class. "
+        "First-class passengers survived at 62.0%, compared to only 25.5% for third-class. "
         "This reflects both better lifeboat access and cabin location on higher decks."
     )
     pdf.add_image(CHART_DIR / "stacked_survival.png", w=190)
@@ -664,9 +665,9 @@ def generate_pdf(df, output_path: Path):
         [60, 60, 70],
     )
     pdf.body_text(
-        "Children aged 0-16 had the highest survival rate at 55.0%, confirming the "
+        "Children aged 0-16 had the highest survival rate at 49.0%, confirming the "
         "'children first' evacuation policy. The oldest age group (65-80) had the "
-        "lowest survival rate at 9.1%."
+        "lowest survival rate at 0.0%."
     )
     pdf.add_image(CHART_DIR / "age_gender_survival.png", w=190)
     pdf.body_text(
@@ -698,8 +699,8 @@ def generate_pdf(df, output_path: Path):
         [60, 60, 70],
     )
     pdf.body_text(
-        "Passengers in the highest fare quintile ($102-$514) had survival rates of "
-        "64.7% to 100%, while the lowest quintile had only 36.2% survival."
+        "Passengers in the highest fare quintile ($42-$512) had survival rates of "
+        "62.2%, while the lowest quintile had only 25.7% survival."
     )
 
     # 8. Embarkation Port Analysis
@@ -718,9 +719,9 @@ def generate_pdf(df, output_path: Path):
         [60, 60, 70],
     )
     pdf.body_text(
-        "Cherbourg passengers had the highest survival rate (55.4%), likely because "
+        "Cherbourg passengers had the highest survival rate (56.6%), likely because "
         "more first-class passengers boarded there. Southampton, the main embarkation "
-        "port, had the lowest rate (33.7%) due to its large third-class population."
+        "port, had the lowest rate (33.4%) due to its large third-class population."
     )
 
     # 9. Family Size Analysis
@@ -959,14 +960,14 @@ def generate_pdf(df, output_path: Path):
     pdf.sub_title("Summary of Findings")
 
     findings = [
-        "Gender was the strongest predictor of survival: 74.2% of women survived vs. 18.9% of men. The Chi-square test confirms this association is highly significant (p < 2.2e-16), validating the 'women and children first' evacuation protocol.",
-        "Ticket class had a major impact: 1st class passengers survived at 63.0% vs. 24.2% for 3rd class. The Chi-square test (p < 2.2e-16) confirms socioeconomic privilege was a decisive factor in survival.",
-        "Children (0-16) had a 55.0% survival rate, significantly higher than adults. ANOVA across age groups confirms survival rates differ significantly by age (p < 0.05).",
+        "Gender was the strongest predictor of survival: 72.8% of women survived vs. 19.1% of men. The Chi-square test confirms this association is highly significant (p < 2.2e-16), validating the 'women and children first' evacuation protocol.",
+        "Ticket class had a major impact: 1st class passengers survived at 62.0% vs. 25.5% for 3rd class. The Chi-square test (p < 2.2e-16) confirms socioeconomic privilege was a decisive factor in survival.",
+        "Children (0-16) had a 49.0% survival rate, significantly higher than adults. ANOVA across age groups confirms survival rates differ significantly by age (p < 0.05).",
         "Higher fare passengers survived at higher rates. The T-test confirms survivors paid significantly more ($48.40 vs $22.14, p < 2.2e-16). The Fare-Survived correlation (r=0.257) is the strongest numerical predictor.",
-        "Passengers from Cherbourg had the highest survival rate (55.4%), confounded with class composition. The Chi-square test confirms this association is significant (p < 0.05).",
+        "Passengers from Cherbourg had the highest survival rate (56.6%), confounded with class composition. The Chi-square test confirms this association is significant (p < 0.05).",
         "Small families (2-4 members) had better survival odds than solo travelers (34.5%) or large families, suggesting mutual aid during evacuation. The Parch-Survived correlation (r=0.082) indicates a weak but positive family effect.",
-        "First-class women had a 96.8% survival rate, while third-class men had only 13.5%, showing the compounding effect of class and gender. This is the most extreme survival disparity in the dataset.",
-        "Titles extracted from names confirm social hierarchy: 'Mrs' (79.5%), 'Miss' (69.8%), and 'Master' (58.3%) had high survival rates, while 'Mr' had only 15.7%, reflecting gender and age biases.",
+        "First-class women had a 96.5% survival rate, while third-class men had only 15.2%, showing the compounding effect of class and gender. This is the most extreme survival disparity in the dataset.",
+        "Titles extracted from names confirm social hierarchy: 'Mrs' (78.2%), 'Miss' (67.7%), and 'Master' (50.8%) had high survival rates, while 'Mr' had only 16.2%, reflecting gender and age biases.",
         "The Age-Survived T-test (p=0.04) shows survivors were slightly younger on average (28.3 vs 30.6 years), but the effect size is modest compared to gender and class effects.",
         "SibSp and Parch show non-linear relationships: having 1-2 siblings or 1-3 parents/children was associated with 45-55% survival, while having none or many reduced odds to 30-35%.",
         "The SibSp-Age negative correlation (r=-0.308) reveals younger passengers traveled with more siblings, while the Parch-Fare positive correlation (r=0.216) shows families with children paid higher fares.",
