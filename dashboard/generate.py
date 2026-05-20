@@ -149,6 +149,7 @@ def generate_dashboard(df, output_path: Path):
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Titanic EDA Dashboard</title>
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2.2.0/dist/chartjs-plugin-datalabels.min.js"></script>
     <style>
         :root {{
             --bg-primary: #0f172a;
@@ -681,6 +682,14 @@ def generate_dashboard(df, output_path: Path):
                         callbacks: {{
                             label: ctx => `{{ctx.label}}: {{ctx.raw}} ({{(ctx.raw / {data['passenger_stats']['total']} * 100).toFixed(1)}}%)`
                         }}
+                    }},
+                    datalabels: {{
+                        color: '#fff',
+                        font: {{ weight: 'bold', size: 14 }},
+                        formatter: (val) => {{
+                            const pct = (val / {data['passenger_stats']['total']} * 100).toFixed(1);
+                            return `${{pct}}%\\n(${{val}})`;
+                        }},
                     }}
                 }}
             }}
@@ -700,7 +709,16 @@ def generate_dashboard(df, output_path: Path):
             }},
             options: {{
                 ...chartDefaults,
-                plugins: {{ legend: {{ display: false }} }},
+                plugins: {{ legend: {{ display: false }},
+                    datalabels: {{
+                        anchor: 'end',
+                        align: 'end',
+                        offset: 4,
+                        color: getThemeColors().text,
+                        font: {{ weight: 'bold', size: 12 }},
+                        formatter: val => `${{val}}%`,
+                    }}
+                }},
                 scales: {{
                     ...chartDefaults.scales,
                     y: {{ ...chartDefaults.scales.y, max: 100, title: {{ display: true, text: 'Survival Rate (%)', color: getThemeColors().text }} }}
@@ -722,7 +740,16 @@ def generate_dashboard(df, output_path: Path):
             }},
             options: {{
                 ...chartDefaults,
-                plugins: {{ legend: {{ display: false }} }},
+                plugins: {{ legend: {{ display: false }},
+                    datalabels: {{
+                        anchor: 'end',
+                        align: 'end',
+                        offset: 4,
+                        color: getThemeColors().text,
+                        font: {{ weight: 'bold', size: 12 }},
+                        formatter: val => `${{val}}%`,
+                    }}
+                }},
                 scales: {{
                     ...chartDefaults.scales,
                     y: {{ ...chartDefaults.scales.y, max: 100, title: {{ display: true, text: 'Survival Rate (%)', color: getThemeColors().text }} }}
@@ -744,7 +771,16 @@ def generate_dashboard(df, output_path: Path):
             }},
             options: {{
                 ...chartDefaults,
-                plugins: {{ legend: {{ display: false }} }},
+                plugins: {{ legend: {{ display: false }},
+                    datalabels: {{
+                        anchor: 'end',
+                        align: 'end',
+                        offset: 4,
+                        color: getThemeColors().text,
+                        font: {{ weight: 'bold', size: 12 }},
+                        formatter: val => `${{val}}%`,
+                    }}
+                }},
                 scales: {{
                     ...chartDefaults.scales,
                     y: {{ ...chartDefaults.scales.y, max: 100, title: {{ display: true, text: 'Survival Rate (%)', color: getThemeColors().text }} }}
@@ -766,7 +802,16 @@ def generate_dashboard(df, output_path: Path):
             }},
             options: {{
                 ...chartDefaults,
-                plugins: {{ legend: {{ display: false }} }},
+                plugins: {{ legend: {{ display: false }},
+                    datalabels: {{
+                        anchor: 'end',
+                        align: 'end',
+                        offset: 4,
+                        color: getThemeColors().text,
+                        font: {{ weight: 'bold', size: 12 }},
+                        formatter: val => val > 0 ? `${{val}}%` : '',
+                    }}
+                }},
                 scales: {{
                     ...chartDefaults.scales,
                     y: {{ ...chartDefaults.scales.y, max: 100, title: {{ display: true, text: 'Survival Rate (%)', color: getThemeColors().text }} }}
@@ -788,7 +833,16 @@ def generate_dashboard(df, output_path: Path):
             }},
             options: {{
                 ...chartDefaults,
-                plugins: {{ legend: {{ display: false }} }},
+                plugins: {{ legend: {{ display: false }},
+                    datalabels: {{
+                        anchor: 'end',
+                        align: 'end',
+                        offset: 4,
+                        color: getThemeColors().text,
+                        font: {{ weight: 'bold', size: 12 }},
+                        formatter: val => val > 0 ? `${{val}}%` : '',
+                    }}
+                }},
                 scales: {{
                     ...chartDefaults.scales,
                     y: {{ ...chartDefaults.scales.y, max: 100, title: {{ display: true, text: 'Survival Rate (%)', color: getThemeColors().text }} }}
@@ -810,7 +864,16 @@ def generate_dashboard(df, output_path: Path):
             }},
             options: {{
                 ...chartDefaults,
-                plugins: {{ legend: {{ display: false }} }},
+                plugins: {{ legend: {{ display: false }},
+                    datalabels: {{
+                        anchor: 'end',
+                        align: 'end',
+                        offset: 4,
+                        color: getThemeColors().text,
+                        font: {{ weight: 'bold', size: 11 }},
+                        formatter: val => val > 0 ? `${{val}}%` : '',
+                    }}
+                }},
                 scales: {{
                     ...chartDefaults.scales,
                     y: {{ ...chartDefaults.scales.y, max: 100, title: {{ display: true, text: 'Survival Rate (%)', color: getThemeColors().text }} }}
@@ -832,7 +895,16 @@ def generate_dashboard(df, output_path: Path):
             }},
             options: {{
                 ...chartDefaults,
-                plugins: {{ legend: {{ display: false }} }},
+                plugins: {{ legend: {{ display: false }},
+                    datalabels: {{
+                        anchor: 'end',
+                        align: 'end',
+                        offset: 4,
+                        color: getThemeColors().text,
+                        font: {{ weight: 'bold', size: 11 }},
+                        formatter: val => val > 0 ? `${{val}}%` : '',
+                    }}
+                }},
                 scales: {{
                     ...chartDefaults.scales,
                     y: {{ ...chartDefaults.scales.y, max: 100, title: {{ display: true, text: 'Survival Rate (%)', color: getThemeColors().text }} }},
@@ -858,7 +930,16 @@ def generate_dashboard(df, output_path: Path):
             }},
             options: {{
                 ...chartDefaults,
-                plugins: {{ legend: {{ display: false }} }},
+                plugins: {{ legend: {{ display: false }},
+                    datalabels: {{
+                        anchor: 'end',
+                        align: 'end',
+                        offset: 4,
+                        color: getThemeColors().text,
+                        font: {{ weight: 'bold', size: 11 }},
+                        formatter: val => val,
+                    }}
+                }},
                 scales: {{
                     ...chartDefaults.scales,
                     y: {{ ...chartDefaults.scales.y, title: {{ display: true, text: 'Count', color: getThemeColors().text }} }}
@@ -883,7 +964,16 @@ def generate_dashboard(df, output_path: Path):
             }},
             options: {{
                 ...chartDefaults,
-                plugins: {{ legend: {{ display: false }} }},
+                plugins: {{ legend: {{ display: false }},
+                    datalabels: {{
+                        anchor: 'end',
+                        align: 'end',
+                        offset: 4,
+                        color: getThemeColors().text,
+                        font: {{ weight: 'bold', size: 11 }},
+                        formatter: val => val,
+                    }}
+                }},
                 scales: {{
                     ...chartDefaults.scales,
                     y: {{ ...chartDefaults.scales.y, title: {{ display: true, text: 'Count', color: getThemeColors().text }} }}
