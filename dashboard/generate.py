@@ -149,7 +149,7 @@ def generate_dashboard(df, output_path: Path):
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Titanic EDA Dashboard</title>
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2.2.0/dist/chartjs-plugin-datalabels.min.js"></script>
+    <script src="https://unpkg.com/chartjs-plugin-datalabels@2.2.0/dist/chartjs-plugin-datalabels.min.js"></script>
     <style>
         :root {{
             --bg-primary: #0f172a;
@@ -640,6 +640,9 @@ def generate_dashboard(df, output_path: Path):
     </main>
 
     <script>
+        const DL = typeof ChartDataLabels !== 'undefined' ? ChartDataLabels : null;
+        if (DL) Chart.register(DL);
+
         const chartDefaults = {{
             responsive: true,
             maintainAspectRatio: false,
@@ -661,7 +664,10 @@ def generate_dashboard(df, output_path: Path):
             }};
         }}
 
+        const DL_PLUGIN = DL ? [DL] : [];
+
         new Chart(document.getElementById('survivalChart'), {{
+            plugins: DL_PLUGIN,
             type: 'doughnut',
             data: {{
                 labels: ['Perished', 'Survived'],
@@ -696,6 +702,7 @@ def generate_dashboard(df, output_path: Path):
         }});
 
         new Chart(document.getElementById('sexChart'), {{
+            plugins: DL_PLUGIN,
             type: 'bar',
             data: {{
                 labels: {json.dumps([r['Sex'] for r in data['survival_by_sex']])},
@@ -727,6 +734,7 @@ def generate_dashboard(df, output_path: Path):
         }});
 
         new Chart(document.getElementById('pclassChart'), {{
+            plugins: DL_PLUGIN,
             type: 'bar',
             data: {{
                 labels: ['1st Class', '2nd Class', '3rd Class'],
@@ -758,6 +766,7 @@ def generate_dashboard(df, output_path: Path):
         }});
 
         new Chart(document.getElementById('embarkedChart'), {{
+            plugins: DL_PLUGIN,
             type: 'bar',
             data: {{
                 labels: {json.dumps([r['Embarked'] for r in data['survival_by_embarked']])},
@@ -789,6 +798,7 @@ def generate_dashboard(df, output_path: Path):
         }});
 
         new Chart(document.getElementById('ageChart'), {{
+            plugins: DL_PLUGIN,
             type: 'bar',
             data: {{
                 labels: {json.dumps([r['Age'] for r in data['survival_by_age']])},
@@ -820,6 +830,7 @@ def generate_dashboard(df, output_path: Path):
         }});
 
         new Chart(document.getElementById('fareChart'), {{
+            plugins: DL_PLUGIN,
             type: 'bar',
             data: {{
                 labels: {json.dumps([r['Fare'] for r in data['survival_by_fare']])},
@@ -851,6 +862,7 @@ def generate_dashboard(df, output_path: Path):
         }});
 
         new Chart(document.getElementById('titleChart'), {{
+            plugins: DL_PLUGIN,
             type: 'bar',
             data: {{
                 labels: {json.dumps([r['Title'] for r in data['title_survival']])},
@@ -882,6 +894,7 @@ def generate_dashboard(df, output_path: Path):
         }});
 
         new Chart(document.getElementById('familyChart'), {{
+            plugins: DL_PLUGIN,
             type: 'bar',
             data: {{
                 labels: {json.dumps([str(r['FamilySize']) for r in data['family_survival']])},
@@ -914,6 +927,7 @@ def generate_dashboard(df, output_path: Path):
         }});
 
         new Chart(document.getElementById('ageDistChart'), {{
+            plugins: DL_PLUGIN,
             type: 'bar',
             data: {{
                 labels: {json.dumps([r['bin'] for r in data['age_dist']])},
@@ -948,6 +962,7 @@ def generate_dashboard(df, output_path: Path):
         }});
 
         new Chart(document.getElementById('fareDistChart'), {{
+            plugins: DL_PLUGIN,
             type: 'bar',
             data: {{
                 labels: {json.dumps([r['bin'] for r in data['fare_dist']])},

@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Titanic EDA Dashboard</title>
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2.2.0/dist/chartjs-plugin-datalabels.min.js"></script>
+    <script src="https://unpkg.com/chartjs-plugin-datalabels@2.2.0/dist/chartjs-plugin-datalabels.min.js"></script>
     <style>
         :root {
             --bg-primary: #0f172a;
@@ -508,6 +508,9 @@
     </main>
 
     <script>
+        const DL = typeof ChartDataLabels !== 'undefined' ? ChartDataLabels : null;
+        if (DL) Chart.register(DL);
+
         const chartDefaults = {
             responsive: true,
             maintainAspectRatio: false,
@@ -529,7 +532,10 @@
             };
         }
 
+        const DL_PLUGIN = DL ? [DL] : [];
+
         new Chart(document.getElementById('survivalChart'), {
+            plugins: DL_PLUGIN,
             type: 'doughnut',
             data: {
                 labels: ['Perished', 'Survived'],
@@ -564,6 +570,7 @@
         });
 
         new Chart(document.getElementById('sexChart'), {
+            plugins: DL_PLUGIN,
             type: 'bar',
             data: {
                 labels: ["female", "male"],
@@ -595,6 +602,7 @@
         });
 
         new Chart(document.getElementById('pclassChart'), {
+            plugins: DL_PLUGIN,
             type: 'bar',
             data: {
                 labels: ['1st Class', '2nd Class', '3rd Class'],
@@ -626,6 +634,7 @@
         });
 
         new Chart(document.getElementById('embarkedChart'), {
+            plugins: DL_PLUGIN,
             type: 'bar',
             data: {
                 labels: ["C", "Q", "S"],
@@ -657,6 +666,7 @@
         });
 
         new Chart(document.getElementById('ageChart'), {
+            plugins: DL_PLUGIN,
             type: 'bar',
             data: {
                 labels: ["(0.0, 16.0]", "(16.0, 32.0]", "(32.0, 48.0]", "(48.0, 64.0]", "(64.0, 80.0]"],
@@ -688,6 +698,7 @@
         });
 
         new Chart(document.getElementById('fareChart'), {
+            plugins: DL_PLUGIN,
             type: 'bar',
             data: {
                 labels: ["(-1.0, 102.0]", "(102.0, 205.0]", "(205.0, 307.0]", "(307.0, 410.0]", "(410.0, 512.0]"],
@@ -719,6 +730,7 @@
         });
 
         new Chart(document.getElementById('titleChart'), {
+            plugins: DL_PLUGIN,
             type: 'bar',
             data: {
                 labels: ["Master", "Miss", "Mr", "Mrs", "Officer", "Other", "Royalty"],
@@ -750,6 +762,7 @@
         });
 
         new Chart(document.getElementById('familyChart'), {
+            plugins: DL_PLUGIN,
             type: 'bar',
             data: {
                 labels: ["1", "2", "3", "4", "5", "6", "7", "8", "11"],
@@ -782,6 +795,7 @@
         });
 
         new Chart(document.getElementById('ageDistChart'), {
+            plugins: DL_PLUGIN,
             type: 'bar',
             data: {
                 labels: ["(0.0, 8.0]", "(8.0, 16.0]", "(16.0, 24.0]", "(24.0, 32.0]", "(32.0, 40.0]", "(40.0, 48.0]", "(48.0, 56.0]", "(56.0, 64.0]", "(64.0, 72.0]", "(72.0, 80.0]"],
@@ -816,6 +830,7 @@
         });
 
         new Chart(document.getElementById('fareDistChart'), {
+            plugins: DL_PLUGIN,
             type: 'bar',
             data: {
                 labels: ["(-1.0, 51.0]", "(51.0, 102.0]", "(102.0, 154.0]", "(154.0, 205.0]", "(205.0, 256.0]", "(256.0, 307.0]", "(307.0, 359.0]", "(359.0, 410.0]", "(410.0, 461.0]", "(461.0, 512.0]"],
