@@ -10,10 +10,11 @@ A complete exploratory analysis of the **titanic5** passenger dataset (1,309 pas
 
 ## What you'll find here
 
-### 📊 Three deliverables
+### 📊 Four deliverables
 
 | Output | Audience | Path |
 |---|---|---|
+| **📖 Analyst report — rendered Markdown** | **Reads inline on GitHub** | [**REPORT.md**](REPORT.md) ← start here |
 | **Interactive dashboard** (Chart.js, dark + light themes, scroll-spy nav) | Anyone exploring the data | [dashboard/index.html](dashboard/index.html) |
 | **Analyst report — DOCX (editable)** | Stakeholders, hiring managers, peer review | [reports/Titanic_Survival_Analyst_Report.docx](reports/Titanic_Survival_Analyst_Report.docx) |
 | **Analyst report — PDF** | Same content, fixed-layout for distribution | [reports/Titanic_Survival_Analyst_Report.pdf](reports/Titanic_Survival_Analyst_Report.pdf) |
