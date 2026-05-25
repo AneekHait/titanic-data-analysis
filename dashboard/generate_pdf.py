@@ -15,6 +15,7 @@ from scipy import stats as scipy_stats
 from fpdf import FPDF
 
 from src.data.loader import load_titanic
+from src.data.processing import clean_data, engineer_features
 from src.analysis.eda import (
     data_overview,
     missing_summary,
@@ -22,6 +23,13 @@ from src.analysis.eda import (
     survival_by_categorical,
     survival_by_numerical,
     correlation_analysis,
+)
+from src.analysis.statistics import effect_sizes
+from src.analysis.inference import (
+    survival_rates_with_ci,
+    key_odds_ratios,
+    joint_survival,
+    wilson_ci,
 )
 from src.config import OUTPUTS_FIGURES
 
@@ -446,6 +454,123 @@ def chart_sibsp_parch_survival(df):
     return _save(fig, "sibsp_parch_survival.png")
 
 
+def chart_feature_importance(df):
+    es = effect_sizes(df).sort_values("effect_size", ascending=True, key=lambda s: s.abs())
+    fig, ax = plt.subplots(figsize=(11, 5))
+    fig.patch.set_facecolor("#fafbfc")
+    strength_color = {"Large": COLORS["green"], "Medium": COLORS["accent"],
+                     "Small": COLORS["yellow"], "Negligible": "#94a3b8"}
+    colors = [strength_color.get(s, COLORS["accent"]) for s in es["strength"]]
+    bars = ax.barh(
+        [f"{r['feature']} ({r['metric'].replace('Point-biserial r', 'r').replace(chr(39)+'s V', '')})"
+         for _, r in es.iterrows()],
+        es["effect_size"].abs().values, color=colors, edgecolor="white", linewidth=1, height=0.65,
+    )
+    ax.set_title("Feature Predictive Power for Survival", fontweight="700", fontsize=FONTSIZE["title"] + 1)
+    _style_axes(ax, xlabel="Effect Size (|r| or Cramer's V)")
+    ax.set_xlim(0, max(es["effect_size"].abs().max() * 1.18, 0.6))
+    for bar, (_, row) in zip(bars, es.iterrows()):
+        ax.text(bar.get_width() + 0.005, bar.get_y() + bar.get_height() / 2,
+                f"{row['effect_size']:+.3f}  ({row['strength']})",
+                va="center", fontweight="700", fontsize=FONTSIZE["annot"] - 1, color="#1f2937")
+    for x, label in [(0.1, "Small"), (0.3, "Medium"), (0.5, "Large")]:
+        ax.axvline(x, color="#cbd5e1", linestyle="--", linewidth=0.8, alpha=0.7)
+        ax.text(x, -0.5, label, ha="center", fontsize=8, color="#64748b", fontweight="600")
+    fig.tight_layout()
+    return _save(fig, "feature_importance.png")
+
+
+def chart_odds_ratios(df):
+    odds = key_odds_ratios(df)
+    odds_sorted = sorted(odds, key=lambda o: o["odds_ratio"])
+    labels = [o["label"] for o in odds_sorted]
+    values = [o["odds_ratio"] for o in odds_sorted]
+    lows = [o["ci_low"] for o in odds_sorted]
+    highs = [o["ci_high"] for o in odds_sorted]
+    colors = [COLORS["green"] if v > 1 else COLORS["red"] for v in values]
+
+    fig, ax = plt.subplots(figsize=(11, 5.5))
+    fig.patch.set_facecolor("#fafbfc")
+    y_pos = np.arange(len(values))
+    ax.barh(y_pos, values, color=colors, height=0.55, edgecolor="white", linewidth=1, alpha=0.85)
+    ax.errorbar(values, y_pos, xerr=[np.array(values) - np.array(lows), np.array(highs) - np.array(values)],
+                fmt="none", ecolor="#1f2937", elinewidth=1.4, capsize=4, capthick=1.4)
+    ax.axvline(1, color="#64748b", linestyle="--", linewidth=1.2, alpha=0.8)
+    ax.text(1.02, -0.7, "OR = 1 (no effect)", fontsize=8, color="#64748b", fontweight="600")
+    ax.set_yticks(y_pos)
+    ax.set_yticklabels(labels)
+    ax.set_xscale("log")
+    ax.set_xlim(min(0.05, min(lows) * 0.7), max(highs) * 1.4)
+    ax.set_title("Survival Odds Ratios with 95% CIs", fontweight="700", fontsize=FONTSIZE["title"] + 1)
+    _style_axes(ax, xlabel="Odds Ratio (log scale)")
+    for i, (v, lo, hi) in enumerate(zip(values, lows, highs)):
+        ax.text(hi * 1.08, i, f"{v:.2f}x [{lo:.2f}, {hi:.2f}]",
+                va="center", fontsize=9, fontweight="600", color="#1f2937")
+    fig.tight_layout()
+    return _save(fig, "odds_ratios.png")
+
+
+def chart_joint_class_sex(df):
+    pivot_rate = df.groupby(["Pclass", "Sex"], observed=True)["Survived"].mean().mul(100).unstack()
+    pivot_count = df.groupby(["Pclass", "Sex"], observed=True)["Survived"].count().unstack()
+    pivot_rate = pivot_rate[["female", "male"]]
+    pivot_count = pivot_count[["female", "male"]]
+    labels = np.array([[f"{pivot_rate.iat[i, j]:.1f}%\nn={int(pivot_count.iat[i, j])}"
+                        for j in range(pivot_rate.shape[1])] for i in range(pivot_rate.shape[0])])
+
+    fig, ax = plt.subplots(figsize=(8, 5))
+    fig.patch.set_facecolor("#fafbfc")
+    sns.heatmap(pivot_rate, annot=labels, fmt="", cmap="RdYlGn", center=50,
+                vmin=0, vmax=100, ax=ax,
+                cbar_kws={"label": "Survival Rate (%)", "shrink": 0.85},
+                linewidths=2, linecolor="white",
+                annot_kws={"fontsize": 12, "fontweight": "700"})
+    ax.set_title("Joint Survival: Class x Sex", fontweight="700", fontsize=FONTSIZE["title"] + 1, pad=10)
+    ax.set_xlabel("Sex", fontweight="600")
+    ax.set_ylabel("Class", fontweight="600")
+    ax.set_xticklabels(["Female", "Male"], rotation=0)
+    ax.set_yticklabels(["1st", "2nd", "3rd"], rotation=0)
+    fig.tight_layout()
+    return _save(fig, "joint_class_sex.png")
+
+
+def chart_lifeboat_survival(df):
+    fig, axes = plt.subplots(1, 2, figsize=(16, 5))
+    fig.patch.set_facecolor("#fafbfc")
+
+    has_boat = df["Lifeboat"].notna()
+    counts = pd.DataFrame({
+        "Group": ["On Lifeboat", "No Boat Record"],
+        "Survived": [int(df.loc[has_boat, "Survived"].sum()), int(df.loc[~has_boat, "Survived"].sum())],
+        "Perished": [int((df.loc[has_boat, "Survived"] == 0).sum()), int((df.loc[~has_boat, "Survived"] == 0).sum())],
+    }).set_index("Group")
+    counts.plot(kind="bar", stacked=True, ax=axes[0], color=[COLORS["green"], COLORS["red"]],
+                width=0.55, edgecolor="white", linewidth=1)
+    axes[0].set_title("Lifeboat Record vs Survival", fontweight="700", fontsize=FONTSIZE["title"])
+    _style_axes(axes[0], ylabel="Passengers")
+    axes[0].set_xticklabels(counts.index, rotation=0, fontsize=FONTSIZE["tick"])
+    axes[0].legend(fontsize=FONTSIZE["tick"], frameon=True, facecolor="white", edgecolor="#d1d5db")
+    for container in axes[0].containers:
+        axes[0].bar_label(container, fmt="{:.0f}", fontsize=9, fontweight="700",
+                          label_type="center", color="#fff")
+
+    boat_passengers = df[has_boat].copy()
+    if len(boat_passengers) > 0:
+        boat_by_sex = boat_passengers.groupby("Sex")["Lifeboat"].count()
+        all_by_sex = df.groupby("Sex").size()
+        rate = (boat_by_sex / all_by_sex * 100).reindex(["female", "male"]).fillna(0)
+        rate.plot(kind="bar", ax=axes[1], color=[COLORS["red"], COLORS["accent"]],
+                  width=0.55, edgecolor="white", linewidth=1)
+        axes[1].set_title("% with Lifeboat Record by Sex", fontweight="700", fontsize=FONTSIZE["title"])
+        _style_axes(axes[1], ylabel="% with Lifeboat #")
+        axes[1].set_xticklabels(["Female", "Male"], rotation=0, fontsize=FONTSIZE["tick"])
+        axes[1].set_ylim(0, 100)
+        _add_bar_labels(axes[1], fmt="{:.1f}%")
+
+    fig.tight_layout()
+    return _save(fig, "lifeboat_survival.png")
+
+
 class PDF(FPDF):
     def header(self):
         if self.page_no() == 1:
@@ -553,52 +678,128 @@ class PDF(FPDF):
             fill = not fill
         self.ln(4)
 
+    def _count_wrapped_lines(self, text: str, max_w: float) -> int:
+        lines = 0
+        for paragraph in text.split("\n"):
+            words = paragraph.split(" ")
+            current = ""
+            for word in words:
+                candidate = (current + " " + word).strip() if current else word
+                if self.get_string_width(candidate) <= max_w:
+                    current = candidate
+                else:
+                    if current:
+                        lines += 1
+                    current = word
+            if current or not paragraph:
+                lines += 1
+        return max(1, lines)
+
     def inference_box(self, title, text, color=(59, 130, 246)):
-        x = self.get_x()
-        y = self.get_y()
         w = 190
-        h = 16
-        if y + h > 277:
+        bar_w = 1.6
+        inner_x_offset = bar_w + 4
+        inner_w = w - inner_x_offset - 4
+        title_h = 5
+        line_h = 4.2
+        pad_top = 1.5
+        pad_bot = 2
+        self.set_font("Helvetica", "", 9)
+        line_count = self._count_wrapped_lines(text, inner_w - 2) + 1
+        body_h = line_count * line_h
+        h = pad_top + title_h + body_h + pad_bot
+
+        bottom_limit = self.h - self.b_margin
+        if self.get_y() + h + 8 > bottom_limit:
             self.add_page()
-            y = self.get_y()
-        self.set_fill_color(*[int(c * 0.08) for c in color])
-        self.set_draw_color(*color)
-        self.set_line_width(0.8)
-        self.rect(x, y, w, h, "DF")
-        self.set_font("Helvetica", "B", 9)
-        self.set_text_color(*color)
-        self.set_xy(x + 4, y + 1)
-        self.cell(w - 8, 5, title, new_x="LMARGIN", new_y="NEXT")
-        self.set_font("Helvetica", "", 8)
-        self.set_text_color(60, 60, 60)
-        self.set_xy(x + 4, y + 6)
-        self.multi_cell(w - 8, 4, text)
+        x = self.l_margin
+        y = self.get_y()
+
+        prev_auto = self.auto_page_break
+        prev_margin = self.b_margin
+        self.set_auto_page_break(auto=False)
+
+        # very pale tint fill for subtle separation
+        tint = tuple(int(c + (255 - c) * 0.94) for c in color)
+        self.set_fill_color(*tint)
+        self.rect(x, y, w, h, "F")
+        # colored left bar
+        self.set_fill_color(*color)
+        self.rect(x, y, bar_w, h, "F")
+
+        self.set_font("Helvetica", "B", 9.5)
+        self.set_text_color(*[int(c * 0.55) for c in color])
+        self.set_xy(x + inner_x_offset, y + pad_top)
+        self.cell(inner_w, title_h, title, new_x="LMARGIN", new_y="NEXT")
+        self.set_font("Helvetica", "", 9)
+        self.set_text_color(30, 41, 59)
+        self.set_xy(x + inner_x_offset, y + pad_top + title_h)
+        self.multi_cell(inner_w, line_h, text)
+
+        self.set_auto_page_break(auto=prev_auto, margin=prev_margin)
         self.set_y(y + h + 4)
 
 
 def generate_pdf(df, output_path: Path):
+    df_eng = engineer_features(clean_data(df))
     pdf = PDF()
     pdf.set_auto_page_break(auto=True, margin=20)
 
     pdf.add_page()
-    pdf.ln(35)
-    pdf.set_font("Helvetica", "B", 36)
-    pdf.set_text_color(30, 58, 95)
-    pdf.cell(0, 20, "Titanic EDA Report", align="C", new_x="LMARGIN", new_y="NEXT")
-    pdf.ln(5)
-    pdf.set_font("Helvetica", "", 16)
-    pdf.set_text_color(100, 100, 100)
-    pdf.cell(0, 14, "Exploratory Data Analysis of the Titanic Passenger Dataset", align="C", new_x="LMARGIN", new_y="NEXT")
-    pdf.ln(12)
-    pdf.set_draw_color(59, 130, 246)
-    pdf.set_line_width(1.2)
-    pdf.line(55, pdf.get_y(), 155, pdf.get_y())
-    pdf.ln(12)
+    pdf.set_fill_color(15, 23, 42)
+    pdf.rect(0, 0, 210, 297, "F")
+    pdf.set_fill_color(30, 58, 95)
+    pdf.rect(0, 90, 210, 70, "F")
+
+    pdf.set_xy(0, 100)
+    pdf.set_font("Helvetica", "B", 42)
+    pdf.set_text_color(255, 255, 255)
+    pdf.cell(0, 22, "Titanic", align="C", new_x="LMARGIN", new_y="NEXT")
+    pdf.set_font("Helvetica", "", 22)
+    pdf.set_text_color(186, 209, 240)
+    pdf.cell(0, 14, "Survival EDA Report", align="C", new_x="LMARGIN", new_y="NEXT")
+
+    pdf.ln(8)
+    pdf.set_draw_color(96, 165, 250)
+    pdf.set_line_width(0.8)
+    pdf.line(70, pdf.get_y(), 140, pdf.get_y())
+
+    pdf.set_xy(0, 180)
     pdf.set_font("Helvetica", "", 11)
-    pdf.set_text_color(100, 100, 100)
-    pdf.cell(0, 8, f"Dataset: {len(df)} passengers, {len(df.columns)} features", align="C", new_x="LMARGIN", new_y="NEXT")
-    pdf.cell(0, 8, f"Survival Rate: {df['Survived'].mean()*100:.1f}%", align="C", new_x="LMARGIN", new_y="NEXT")
-    pdf.cell(0, 8, f"Generated: {pd.Timestamp.now().strftime('%B %d, %Y')}", align="C", new_x="LMARGIN", new_y="NEXT")
+    pdf.set_text_color(186, 209, 240)
+    pdf.cell(0, 7, "An Analytical Study of 1,309 Passengers Aboard the RMS Titanic", align="C", new_x="LMARGIN", new_y="NEXT")
+
+    box_w = 50
+    box_h = 28
+    box_gap = 6
+    metrics = [
+        (f"{len(df):,}", "Passengers", (96, 165, 250)),
+        (f"{df['Survived'].mean()*100:.1f}%", "Survived", (52, 211, 153)),
+        (f"{len(df.columns)}", "Features", (167, 139, 250)),
+    ]
+    total_w = len(metrics) * box_w + (len(metrics) - 1) * box_gap
+    x0 = (210 - total_w) / 2
+    y0 = 210
+    for i, (val, lbl, clr) in enumerate(metrics):
+        x = x0 + i * (box_w + box_gap)
+        pdf.set_fill_color(*[max(int(c * 0.18), 25) for c in clr])
+        pdf.set_draw_color(*clr)
+        pdf.set_line_width(0.5)
+        pdf.rect(x, y0, box_w, box_h, "DF")
+        pdf.set_font("Helvetica", "B", 20)
+        pdf.set_text_color(*clr)
+        pdf.set_xy(x, y0 + 4)
+        pdf.cell(box_w, 11, val, align="C")
+        pdf.set_font("Helvetica", "", 9)
+        pdf.set_text_color(220, 220, 230)
+        pdf.set_xy(x, y0 + 17)
+        pdf.cell(box_w, 7, lbl, align="C")
+
+    pdf.set_xy(0, 260)
+    pdf.set_font("Helvetica", "", 9)
+    pdf.set_text_color(140, 165, 200)
+    pdf.cell(0, 5, "Source: titanic5 (hbiostat.org / Encyclopedia Titanica)", align="C", new_x="LMARGIN", new_y="NEXT")
+    pdf.cell(0, 5, f"Generated: {pd.Timestamp.now().strftime('%B %d, %Y')}", align="C", new_x="LMARGIN", new_y="NEXT")
 
     pdf.add_page()
     pdf.section_title("Table of Contents")
@@ -607,17 +808,21 @@ def generate_pdf(df, output_path: Path):
         ("2", "Dataset Overview"),
         ("3", "Missing Value Analysis"),
         ("4", "Survival Analysis"),
-        ("5", "Demographic Analysis"),
-        ("6", "Age Analysis"),
-        ("7", "Fare Analysis"),
-        ("8", "Embarkation Port Analysis"),
-        ("9", "Family Size Analysis"),
-        ("10", "Class & Gender Interaction"),
-        ("11", "Title Analysis"),
-        ("12", "SibSp & Parch Survival Patterns"),
-        ("13", "Correlation Analysis"),
-        ("14", "Statistical Tests & Significance"),
-        ("15", "Key Findings & Conclusion"),
+        ("5", "Feature Predictive Power"),
+        ("6", "Odds Ratios with 95% CIs"),
+        ("7", "Joint Stratified Analysis: Class x Sex"),
+        ("8", "Demographic Analysis"),
+        ("9", "Age Analysis"),
+        ("10", "Fare Analysis"),
+        ("11", "Embarkation Port Analysis"),
+        ("12", "Family Size Analysis"),
+        ("13", "Class & Gender Interaction"),
+        ("14", "Title Analysis"),
+        ("15", "SibSp & Parch Survival Patterns"),
+        ("16", "Lifeboat Records & Survival"),
+        ("17", "Correlation Analysis"),
+        ("18", "Statistical Tests & Significance"),
+        ("19", "Key Findings & Conclusion"),
     ]
     for num, title in toc:
         pdf.set_font("Helvetica", "B", 11)
@@ -645,20 +850,24 @@ def generate_pdf(df, output_path: Path):
     chart_age_gender_survival(df)
     chart_pairwise_scatter(df)
     chart_sibsp_parch_survival(df)
+    chart_feature_importance(df_eng)
+    chart_odds_ratios(df_eng)
+    chart_joint_class_sex(df_eng)
+    chart_lifeboat_survival(df_eng)
     print("Charts generated.")
 
     pdf.add_page()
     pdf.section_title("1. Executive Summary")
     pdf.body_text(
-        "This report presents a comprehensive Exploratory Data Analysis (EDA) of the Titanic "
-        "passenger dataset. The dataset contains information on 1309 passengers aboard the RMS "
-        "Titanic, including demographics, ticket class, fare paid, and survival outcome. "
-        "The analysis aims to identify patterns, correlations, and factors that influenced "
-        "passenger survival during the disaster."
+        "This report presents an Exploratory Data Analysis of the titanic5 dataset (1,309 passengers, "
+        "14 features). It identifies the factors that determined survival, quantifies their relative "
+        "strength via effect sizes and odds ratios, and validates each association with formal "
+        "statistical tests. Where useful, 95% Wilson confidence intervals are reported alongside "
+        "survival rates so the precision of each estimate is visible."
     )
     pdf.sub_title("Key Statistics")
     stats = [
-        ("Total Passengers", len(df)),
+        ("Total Passengers", f"{len(df):,}"),
         ("Survival Rate", f"{df['Survived'].mean()*100:.1f}%"),
         ("Average Age", f"{df['Age'].mean():.1f}"),
         ("Average Fare", f"${df['Fare'].mean():.2f}"),
@@ -669,30 +878,78 @@ def generate_pdf(df, output_path: Path):
             pdf.cell(5)
     pdf.ln(24)
 
+    pdf.sub_title("Headline Findings")
+    female_rate = df_eng[df_eng["Sex"] == "female"]["Survived"].mean() * 100
+    male_rate = df_eng[df_eng["Sex"] == "male"]["Survived"].mean() * 100
+    pc1_rate = df_eng[df_eng["Pclass"] == 1]["Survived"].mean() * 100
+    pc3_rate = df_eng[df_eng["Pclass"] == 3]["Survived"].mean() * 100
+    pdf.bullet(f"Women survived at {female_rate:.1f}% vs men at {male_rate:.1f}%, a {female_rate-male_rate:.1f}-percentage-point gap. Sex is the single largest predictor (Cramer's V approx 0.53).")
+    pdf.bullet(f"1st-class passengers survived at {pc1_rate:.1f}% vs {pc3_rate:.1f}% for 3rd class. Class compounds with sex: 1st-class women 96.5%, 3rd-class men 15.2%.")
+    pdf.bullet("Fare (r=0.247) is the strongest numerical signal, but most of its effect is mediated through class.")
+    pdf.bullet("Children (<=16) survived at higher rates than adults, confirming a measurable 'children first' effect (OR approx 1.7x).")
+    pdf.bullet("Of 1,309 passengers, 486 have a recorded lifeboat number; 479 of them survived. Lifeboat access was the proximate cause of survival.")
+    pdf.bullet("Embarkation port effects largely vanish once class is controlled for; the apparent Cherbourg advantage reflects its first-class-heavy passenger mix.")
+
+    pdf.sub_title("How to Read This Report")
+    pdf.body_text(
+        "Each section answers one question and follows the same shape: a plain-English intro, a chart, "
+        "a data table with confidence intervals, and a blue 'Inference' callout summarizing what the "
+        "numbers actually mean. You don't need a statistics background - the glossary below explains "
+        "every technical term you'll see."
+    )
+    pdf.add_table(
+        ["Term", "What it means in plain English"],
+        [
+            ["Survival rate", "Percent of a group that survived. 62% means 62 of every 100 lived."],
+            ["95% CI",
+             "The range we are 95% confident the true rate falls in. Narrow = certain; wide = small sample."],
+            ["Odds Ratio (OR)",
+             "How many times higher the odds of survival were for one group vs another. OR=2 means twice the odds; OR<1 means lower odds; OR=1 means no effect."],
+            ["Effect size",
+             "How strongly a feature predicts survival on a 0-1 scale. 0.1=small, 0.3=medium, 0.5=large."],
+            ["Cramer's V",
+             "Effect size for categorical features (Sex, Class, Port)."],
+            ["Point-biserial r",
+             "Effect size for a numeric feature predicting a yes/no outcome (Age, Fare vs Survived)."],
+            ["Cohen's d",
+             "How big the difference is between two group means, in standard deviations. 0.2=small, 0.5=medium, 0.8=large."],
+            ["p-value",
+             "Probability the pattern arose by chance. p<0.05=probably real; p<0.001=essentially certain."],
+            ["pp (percentage points)",
+             "Arithmetic gap between two percentages. Going from 19% to 73% is a 54pp jump."],
+            ["Wilson CI",
+             "A specific way to compute a 95% CI for a proportion. More accurate than the textbook formula for small samples or extreme rates."],
+        ],
+        [42, 148],
+    )
+
     pdf.add_page()
     pdf.section_title("2. Dataset Overview")
     pdf.body_text(
-        "The Titanic dataset consists of 1309 records with 14 features. Below is a summary "
-        "of each column including data types and basic statistics."
+        "The titanic5 dataset (Encyclopedia Titanica / Vanderbilt Biostatistics) consists of "
+        "1,309 records and 14 features - 47% more passengers than the well-known Kaggle training "
+        "set, with substantially fewer missing ages (3.9% vs 19.9%)."
     )
     pdf.sub_title("Column Descriptions")
     pdf.add_table(
         ["Column", "Type", "Description"],
         [
             ["PassengerId", "int", "Unique identifier"],
-            ["Survived", "int", "0 = No, 1 = Yes"],
-            ["Pclass", "int", "Ticket class (1/2/3)"],
-            ["Name", "str", "Passenger name"],
-            ["Sex", "str", "Gender"],
-            ["Age", "float", "Age in years"],
-            ["SibSp", "int", "Siblings/spouses aboard"],
-            ["Parch", "int", "Parents/children aboard"],
+            ["Survived", "int", "0 = Perished, 1 = Survived"],
+            ["Pclass", "int", "Ticket class (1=1st, 2=2nd, 3=3rd)"],
+            ["Name", "str", "Passenger name (Title extractable)"],
+            ["Sex", "str", "Gender (female / male)"],
+            ["Age", "float", "Age in years (51 missing)"],
+            ["SibSp", "int", "Siblings or spouse aboard"],
+            ["Parch", "int", "Parents or children aboard"],
             ["Ticket", "str", "Ticket number"],
-            ["Fare", "float", "Passenger fare"],
-            ["Occupation", "str", "Occupation number"],
-            ["Embarked", "str", "Port of embarkation"],
+            ["Fare", "float", "Passenger fare (USD)"],
+            ["Embarked", "str", "Port (C/Q/S/B)"],
+            ["Occupation", "str", "Occupation (621 missing)"],
+            ["BoatBody", "str", "Lifeboat # or body recovery [#]"],
+            ["NameId", "int", "Encyclopedia Titanica identifier"],
         ],
-        [50, 30, 110],
+        [38, 22, 130],
     )
 
     pdf.sub_title("Summary Statistics")
@@ -707,14 +964,42 @@ def generate_pdf(df, output_path: Path):
         [25, 20, 20, 20, 20, 20, 20, 20, 25],
     )
 
+    pdf.sub_title("Composition Snapshot")
+    sex_counts = df["Sex"].value_counts()
+    pclass_counts = df["Pclass"].value_counts().sort_index()
+    emb_counts = df["Embarked"].value_counts()
+    port_names = {"C": "Cherbourg", "Q": "Queenstown", "S": "Southampton", "B": "Belfast"}
+    snapshot_rows = [
+        ["Sex",
+         f"Male {sex_counts.get('male', 0)} ({sex_counts.get('male', 0)/len(df)*100:.1f}%)",
+         f"Female {sex_counts.get('female', 0)} ({sex_counts.get('female', 0)/len(df)*100:.1f}%)",
+         "", ""],
+        ["Class",
+         f"1st {pclass_counts.get(1, 0)} ({pclass_counts.get(1, 0)/len(df)*100:.1f}%)",
+         f"2nd {pclass_counts.get(2, 0)} ({pclass_counts.get(2, 0)/len(df)*100:.1f}%)",
+         f"3rd {pclass_counts.get(3, 0)} ({pclass_counts.get(3, 0)/len(df)*100:.1f}%)",
+         ""],
+        ["Port",
+         f"{port_names['S']} {emb_counts.get('S', 0)} ({emb_counts.get('S', 0)/len(df)*100:.1f}%)",
+         f"{port_names['C']} {emb_counts.get('C', 0)} ({emb_counts.get('C', 0)/len(df)*100:.1f}%)",
+         f"{port_names['Q']} {emb_counts.get('Q', 0)} ({emb_counts.get('Q', 0)/len(df)*100:.1f}%)",
+         f"{port_names['B']} {emb_counts.get('B', 0)} ({emb_counts.get('B', 0)/len(df)*100:.1f}%)"],
+    ]
+    pdf.add_table(
+        ["Attribute", "Group 1", "Group 2", "Group 3", "Group 4"],
+        snapshot_rows,
+        [25, 42, 42, 42, 39],
+    )
+
     pdf.add_page()
     pdf.section_title("3. Missing Value Analysis")
     pdf.body_text(
-        "Understanding missing data is critical before any analysis. Three columns contain "
-        "missing values, with Occupation being the most severely affected at 47.4% missing."
+        "Quantifying missingness before analysis. Compared to the Kaggle training subset, "
+        "titanic5 is markedly more complete: only 3.9% of ages are missing (vs 19.9%) and "
+        "Fare is fully populated."
     )
     missing = missing_summary(df)
-    pdf.add_image(CHART_DIR / "missing_values.png", w=150)
+    pdf.add_image(CHART_DIR / "missing_values.png", w=160)
     pdf.sub_title("Missing Value Details")
     rows = []
     for col_name, row in missing.iterrows():
@@ -725,73 +1010,222 @@ def generate_pdf(df, output_path: Path):
         rows,
         [50, 40, 40, 60],
     )
-    pdf.body_text(
-        "Recommendation: Occupation should be dropped or heavily engineered (e.g., extract deck letter). "
-        "Age can be imputed using median values stratified by class and gender. The 2 missing "
-        "Embarked values can be filled with the mode (Southampton)."
+    pdf.sub_title("Imputation & Handling Strategy")
+    pdf.bullet("Age (3.9% missing): impute using the median of Age within Sex x Pclass strata. This preserves the bimodal age structure (children + adults) and class-related age skews.")
+    pdf.bullet("Occupation (47.4% missing): too sparse to use directly. Treated as HasCabin = 1 if non-null, retaining it as a low-resolution proxy for cabin-info availability.")
+    pdf.bullet("BoatBody: not missing per se - blank string means 'no disposition recorded'. Parsed into Lifeboat (boat number/letter) and BodyRecovered (1 if a recovery code present).")
+    pdf.bullet("Embarked: 2 missing rows in the raw data, filled with the mode (Southampton).")
+    pdf.bullet("Fare: any missing values would be imputed by the median Fare within each Pclass. In titanic5 this column is essentially complete.")
+    pdf.inference_box(
+        "Why this matters",
+        "Most missing-value patterns here are informative: passengers without an Occupation entry "
+        "are largely third-class passengers without recorded cabin info. Naive deletion would bias "
+        "the analysis toward first-class. Median-by-stratum imputation preserves the conditional "
+        "distributions without injecting noise.",
+        color=(96, 165, 250),
     )
 
     pdf.add_page()
     pdf.section_title("4. Survival Analysis")
     pdf.body_text(
-        "Overall, only 38.4% of passengers survived the disaster. Survival was heavily "
-        "influenced by gender and ticket class, reflecting the 'women and children first' "
-        "protocol and the socioeconomic hierarchy aboard the ship."
+        "Roughly 1 in 3 passengers survived (38.2%). That single number, though, hides everything "
+        "interesting. The disaster did not kill people at random - women survived at 73%, men at "
+        "19%; 1st-class passengers at 62%, 3rd-class at 26%. The rest of this report is about "
+        "untangling exactly which factors mattered and by how much."
     )
     pdf.add_image(CHART_DIR / "survival_overview.png", w=190)
-    pdf.sub_title("Survival by Sex")
-    sex_data = survival_by_categorical(df, "Sex")
+    pdf.sub_title("Survival by Sex (with 95% Wilson CI)")
+    sex_ci = survival_rates_with_ci(df, "Sex")
     pdf.add_table(
-        ["Sex", "Passengers", "Survival Rate (%)"],
-        [[idx, int(r["passengers"]), f"{r['survival_rate']:.1f}%"] for idx, r in sex_data.iterrows()],
-        [60, 60, 70],
+        ["Sex", "n", "Survived", "Rate (%)", "95% CI"],
+        [[str(r["level"]).capitalize(), int(r["n"]), int(r["survived"]), f"{r['rate']:.1f}%", f"[{r['ci_low']:.1f}, {r['ci_high']:.1f}]"]
+         for _, r in sex_ci.iterrows()],
+        [38, 30, 35, 35, 52],
     )
     pdf.body_text(
-        "Women had a dramatically higher survival rate (72.8%) compared to men (19.1%). "
-        "This is the strongest single predictor of survival in the dataset."
+        "Women had a dramatically higher survival rate (72.8%) than men (19.1%) - "
+        "a 53.7-percentage-point gap. The CIs do not overlap, making this difference "
+        "statistically unambiguous and the strongest single predictor in the dataset."
     )
-    pdf.sub_title("Survival by Class")
-    pclass_data = survival_by_categorical(df, "Pclass")
+    pdf.sub_title("Survival by Class (with 95% Wilson CI)")
+    pclass_ci = survival_rates_with_ci(df, "Pclass")
+    class_suffix = {1: "1st", 2: "2nd", 3: "3rd"}
     pdf.add_table(
-        ["Class", "Passengers", "Survival Rate (%)"],
-        [[f"{int(idx)}st Class", int(r["passengers"]), f"{r['survival_rate']:.1f}%"] for idx, r in pclass_data.iterrows()],
-        [60, 60, 70],
+        ["Class", "n", "Survived", "Rate (%)", "95% CI"],
+        [[class_suffix.get(int(r["level"]), str(int(r["level"]))), int(r["n"]), int(r["survived"]),
+          f"{r['rate']:.1f}%", f"[{r['ci_low']:.1f}, {r['ci_high']:.1f}]"]
+         for _, r in pclass_ci.iterrows()],
+        [38, 30, 35, 35, 52],
     )
     pdf.body_text(
         "First-class passengers survived at 62.0%, compared to only 25.5% for third-class. "
-        "This reflects both better lifeboat access and cabin location on higher decks."
+        "Confidence intervals are tight thanks to large sample sizes; the differences reflect "
+        "both better lifeboat access and cabin location on higher decks."
     )
     pdf.add_image(CHART_DIR / "stacked_survival.png", w=190)
 
     pdf.add_page()
-    pdf.section_title("5. Demographic Analysis")
-    pdf.sub_title("Passenger Distribution by Class")
-    class_dist = df["Pclass"].value_counts().sort_index()
-    for cls, count in class_dist.items():
-        pct = count / len(df) * 100
-        pdf.bullet(f"Class {cls}: {count} passengers ({pct:.1f}%)")
-    pdf.ln(2)
-
-    pdf.sub_title("Passenger Distribution by Embarked Port")
-    embarked_dist = df["Embarked"].value_counts()
-    port_names = {"S": "Southampton", "C": "Cherbourg", "Q": "Queenstown"}
-    for port, count in embarked_dist.items():
-        pct = count / len(df) * 100
-        pdf.bullet(f"{port_names.get(port, port)}: {count} passengers ({pct:.1f}%)")
-    pdf.ln(2)
-
-    pdf.sub_title("Gender Distribution")
-    sex_dist = df["Sex"].value_counts()
-    for sex, count in sex_dist.items():
-        pct = count / len(df) * 100
-        pdf.bullet(f"{sex.capitalize()}: {count} passengers ({pct:.1f}%)")
+    pdf.section_title("5. Feature Predictive Power")
+    pdf.body_text(
+        "If you could ask just one question about a passenger to predict whether they survived, "
+        "what should it be? This chart ranks every feature by how much information it carries about "
+        "survival, on a 0-to-1 scale. Anything above 0.3 is a meaningful predictor; anything below "
+        "0.1 is essentially noise on its own."
+    )
+    pdf.add_image(CHART_DIR / "feature_importance.png", w=190)
+    es_df = effect_sizes(df_eng)
+    pdf.add_table(
+        ["Feature", "Type", "Metric", "Effect Size", "Strength"],
+        [[r["feature"], r["type"].capitalize(), r["metric"], f"{r['effect_size']:+.3f}", r["strength"]]
+         for _, r in es_df.iterrows()],
+        [40, 35, 45, 35, 35],
+    )
+    pdf.inference_box(
+        "What this means in plain English",
+        "Sex is the single most informative thing you can know about a passenger - it's a 'Large' "
+        "effect that dwarfs everything else. Class is the next most useful piece of information. "
+        "Fare looks helpful, but most of what it tells you is just 'is this a 1st-class ticket?' - "
+        "knowing the class directly is more reliable. Age, siblings, and parents-aboard are weak "
+        "on their own, though they matter when combined with sex (e.g., 'female child').",
+        color=(34, 197, 94),
+    )
 
     pdf.add_page()
-    pdf.section_title("6. Age Analysis")
+    pdf.section_title("6. Odds Ratios with 95% CIs")
     pdf.body_text(
-        "Age is an important factor in survival, with children being given priority "
-        "during evacuation. The average age of passengers was 29.7 years, with 51 "
-        "missing values (3.9%)."
+        "The previous section ranked features. This one quantifies them: for each specific contrast "
+        "(e.g., 'women vs men', '1st class vs the rest'), how many times higher were the odds of "
+        "survival? An odds ratio of 2.0 means twice the odds; 0.5 means half. An OR of 1.0 would mean "
+        "no effect. The 95% CI is the range we are 95% confident contains the true value - it gets "
+        "wider when fewer people are in the comparison."
+    )
+    pdf.add_image(CHART_DIR / "odds_ratios.png", w=190)
+    odds = key_odds_ratios(df_eng)
+    pdf.add_table(
+        ["Contrast", "OR", "95% CI", "Exposed", "Unexposed", "Lift", "p"],
+        [[o["label"],
+          f"{o['odds_ratio']:.2f}x",
+          f"[{o['ci_low']:.2f}, {o['ci_high']:.2f}]",
+          f"{o['rate_exposed']:.1f}% (n={o['n_exposed']})",
+          f"{o['rate_unexposed']:.1f}% (n={o['n_unexposed']})",
+          f"{('+' if o['lift']>0 else '')}{o['lift']:.1f}pp",
+          ("<2e-16" if o["p_value"] < 1e-10 else f"{o['p_value']:.2e}")]
+         for o in odds],
+        [55, 18, 32, 28, 28, 18, 21],
+    )
+    strongest = max(odds, key=lambda o: o["odds_ratio"])
+    weakest = min(odds, key=lambda o: o["odds_ratio"])
+    pdf.inference_box(
+        "What this means in plain English",
+        f"Women were about {strongest['odds_ratio']:.0f}x more likely to survive than men - the "
+        f"biggest single boost in the dataset. Travelling in 3rd class roughly cut your odds to "
+        f"{weakest['odds_ratio']:.2f}x compared to other passengers - about a third the chance. "
+        "The 'Child vs Adult' contrast has a wider confidence interval because there were fewer "
+        "children on board; the effect is real but harder to pin down precisely.",
+        color=(59, 130, 246),
+    )
+
+    pdf.add_page()
+    pdf.section_title("7. Joint Stratified Analysis: Class x Sex")
+    pdf.body_text(
+        "Sex matters. Class matters. But what happens if you combine them? It turns out they don't "
+        "just add - they compound. The six cells below split passengers by both class and sex "
+        "simultaneously. The numbers reveal that you can predict survival almost perfectly if you "
+        "know both. The biggest disparities in the entire dataset are hidden in this 2-by-3 grid."
+    )
+    pdf.add_image(CHART_DIR / "joint_class_sex.png", w=160)
+    joint_df = joint_survival(df_eng, "Pclass", "Sex")
+    class_suffix = {1: "1st", 2: "2nd", 3: "3rd"}
+    rows = []
+    for _, r in joint_df.iterrows():
+        n = int(r["count"])
+        rate = r["rate"]
+        s = int(round(n * rate / 100))
+        lo, hi = wilson_ci(s, n)
+        rows.append([f"{class_suffix.get(int(r['Pclass']), int(r['Pclass']))} - {str(r['Sex']).capitalize()}",
+                     n, f"{rate:.1f}%", f"[{lo:.1f}, {hi:.1f}]"])
+    pdf.add_table(
+        ["Class - Sex", "n", "Survival Rate", "95% CI"],
+        rows,
+        [50, 35, 50, 55],
+    )
+    pdf.inference_box(
+        "What this means in plain English",
+        "A 1st-class woman had roughly a 96-97% chance of surviving - effectively a certainty. "
+        "A 3rd-class man had about a 15% chance - a near-certain death sentence. That is an "
+        "80-percentage-point gap based on just two attributes of who you were. The 'women and "
+        "children first' protocol was real, but it was selectively applied: 1st-class women got "
+        "priority over 3rd-class women, and 3rd-class men were nearly invisible to it.",
+        color=(34, 197, 94),
+    )
+
+    pdf.add_page()
+    pdf.section_title("8. Demographic Analysis")
+    pdf.body_text(
+        "Each demographic column has both a marginal distribution (who was on the ship) and a "
+        "conditional one (who survived). The mismatch between the two is where the survival story lives."
+    )
+
+    pdf.sub_title("Sex x Survival")
+    sex_dist = df["Sex"].value_counts()
+    sex_surv = df.groupby("Sex")["Survived"].agg(["count", "sum", "mean"])
+    rows = [[s.capitalize(), int(sex_surv.loc[s, "count"]), int(sex_surv.loc[s, "sum"]),
+             f"{sex_surv.loc[s, 'mean']*100:.1f}%",
+             f"{int(sex_surv.loc[s, 'count']) - int(sex_surv.loc[s, 'sum'])}"]
+            for s in ["female", "male"]]
+    pdf.add_table(
+        ["Sex", "Total", "Survived", "Rate", "Perished"],
+        rows,
+        [40, 38, 38, 38, 36],
+    )
+
+    pdf.sub_title("Class x Survival")
+    class_suffix = {1: "1st", 2: "2nd", 3: "3rd"}
+    pclass_dist = df["Pclass"].value_counts().sort_index()
+    pclass_surv = df.groupby("Pclass")["Survived"].agg(["count", "sum", "mean"])
+    rows = [[class_suffix.get(int(c), str(int(c))), int(pclass_surv.loc[c, "count"]),
+             int(pclass_surv.loc[c, "sum"]), f"{pclass_surv.loc[c, 'mean']*100:.1f}%",
+             f"{int(pclass_surv.loc[c, 'count']) - int(pclass_surv.loc[c, 'sum'])}"]
+            for c in pclass_dist.index]
+    pdf.add_table(
+        ["Class", "Total", "Survived", "Rate", "Perished"],
+        rows,
+        [40, 38, 38, 38, 36],
+    )
+
+    pdf.sub_title("Port x Survival")
+    port_names = {"C": "Cherbourg", "Q": "Queenstown", "S": "Southampton", "B": "Belfast"}
+    emb_dist = df["Embarked"].value_counts()
+    emb_surv = df.groupby("Embarked")["Survived"].agg(["count", "sum", "mean"])
+    rows = [[port_names.get(p, p), int(emb_surv.loc[p, "count"]),
+             int(emb_surv.loc[p, "sum"]), f"{emb_surv.loc[p, 'mean']*100:.1f}%",
+             f"{int(emb_surv.loc[p, 'count']) - int(emb_surv.loc[p, 'sum'])}"]
+            for p in emb_dist.index]
+    pdf.add_table(
+        ["Port", "Total", "Survived", "Rate", "Perished"],
+        rows,
+        [50, 35, 35, 35, 35],
+    )
+
+    pdf.inference_box(
+        "Note on confounding",
+        "Port and class are highly correlated: Cherbourg's passenger mix is heavily first-class, "
+        "while Southampton's is heavily third-class. Most of the apparent Cherbourg advantage in raw "
+        "survival rate dissolves once class is controlled for (see section 7).",
+        color=(245, 158, 11),
+    )
+
+    pdf.sub_title("Age x Sex x Survival")
+    pdf.add_image(CHART_DIR / "age_gender_survival.png", w=180)
+
+    pdf.add_page()
+    pdf.section_title("9. Age Analysis")
+    pdf.body_text(
+        "Was age really a survival factor, or just folklore? The data says: a real but modest one. "
+        "Children under 16 survived at ~49%, well above the 38% overall rate. The oldest passengers "
+        "fared worst. The chart below shows the age distribution split by survival - notice how the "
+        "green 'survived' bars dominate at the youngest ages. Average age was 29.7 years; only 51 "
+        "people (3.9%) had missing age data, so this analysis is reliable."
     )
     pdf.add_image(CHART_DIR / "age_analysis.png", w=190)
     pdf.sub_title("Age Statistics")
@@ -812,19 +1246,17 @@ def generate_pdf(df, output_path: Path):
     pdf.body_text(
         "Children aged 0-16 had the highest survival rate at 49.0%, confirming the "
         "'children first' evacuation policy. The oldest age group (65-80) had the "
-        "lowest survival rate at 0.0%."
-    )
-    pdf.add_image(CHART_DIR / "age_gender_survival.png", w=190)
-    pdf.body_text(
-        "Separating by gender reveals that young female passengers had the highest "
-        "survival rates, while male children also fared better than adult males."
+        "lowest survival rate at 0.0%. See section 8 for the age x sex breakdown."
     )
 
     pdf.add_page()
-    pdf.section_title("7. Fare Analysis")
+    pdf.section_title("10. Fare Analysis")
     pdf.body_text(
-        "Fare paid is strongly correlated with survival (r=0.257), as higher fares "
-        "indicate higher class tickets with better cabin locations and lifeboat access."
+        "Did paying more for your ticket help you survive? Yes - but mostly because expensive "
+        "tickets bought you 1st-class accommodation on higher decks, closer to the lifeboats. "
+        "Survivors paid an average of $49.63; non-survivors paid $23.19, less than half. The "
+        "correlation between fare and survival (r=0.247) is the strongest of any single numerical "
+        "feature - but it's largely a proxy for class, not an independent factor."
     )
     pdf.add_image(CHART_DIR / "fare_analysis.png", w=190)
     pdf.sub_title("Fare Statistics")
@@ -848,10 +1280,13 @@ def generate_pdf(df, output_path: Path):
     )
 
     pdf.add_page()
-    pdf.section_title("8. Embarkation Port Analysis")
+    pdf.section_title("11. Embarkation Port Analysis")
     pdf.body_text(
-        "The port of embarkation may reflect socioeconomic status, as different ports "
-        "served different passenger demographics."
+        "Did the port you boarded at affect your survival? At a glance, yes: Cherbourg passengers "
+        "survived at 56.6% vs Southampton's 33.4%. But this is a textbook case of a confounded "
+        "variable. Cherbourg happened to be where most 1st-class passengers boarded. Once you "
+        "control for class, the port effect mostly disappears - it isn't really about the port at "
+        "all, it's about who was using that port."
     )
     pdf.add_image(CHART_DIR / "embarked_analysis.png", w=190)
     embarked_data = survival_by_categorical(df, "Embarked")
@@ -868,11 +1303,13 @@ def generate_pdf(df, output_path: Path):
     )
 
     pdf.add_page()
-    pdf.section_title("9. Family Size Analysis")
+    pdf.section_title("12. Family Size Analysis")
     pdf.body_text(
-        "Family size (SibSp + Parch + 1) shows an interesting pattern: passengers "
-        "traveling alone or in very large families had lower survival rates, while "
-        "small families (2-4 members) had the best odds."
+        "There's a clear sweet spot here that took some unpacking. Family size = siblings + spouse + "
+        "parents + children + yourself. Solo travelers (size 1) survived at only 30%. Mid-sized "
+        "families of 2-4 jumped to 50-70%. Very large families (5+) dropped back to under 25%. The "
+        "likely explanation: mid-sized families could coordinate boarding lifeboats together; solo "
+        "passengers had no advocate; very large families struggled to keep everyone together."
     )
     pdf.add_image(CHART_DIR / "family_analysis.png", w=190)
     family_sizes = df.copy()
@@ -886,11 +1323,12 @@ def generate_pdf(df, output_path: Path):
     )
 
     pdf.add_page()
-    pdf.section_title("10. Class & Gender Interaction")
+    pdf.section_title("13. Class & Gender Interaction")
     pdf.body_text(
-        "The interaction between class and gender reveals the most extreme survival "
-        "disparities. First-class women had near-perfect survival, while third-class "
-        "men had the worst outcomes."
+        "Section 7 showed this as a heatmap; the bar chart below makes the same point visually. "
+        "Each pair of bars shows one (class, sex) cell - the green bar is the % who survived, "
+        "the red is the % who perished. Look at the leftmost pair (1st class, female) and the "
+        "rightmost (3rd class, male) - they are almost mirror images of each other."
     )
     pdf.add_image(CHART_DIR / "class_gender.png", w=170)
     cg = pd.crosstab([df["Pclass"], df["Sex"]], df["Survived"], normalize="index").mul(100).round(1)
@@ -901,11 +1339,14 @@ def generate_pdf(df, output_path: Path):
     )
 
     pdf.add_page()
-    pdf.section_title("11. Title Analysis")
+    pdf.section_title("14. Title Analysis")
     pdf.body_text(
-        "Extracting titles from passenger names reveals social status and age groups. "
-        "Titles like 'Master' (young boys) and 'Mrs' (married women) had high survival "
-        "rates, while 'Mr' had the lowest."
+        "Titles in 1912 encoded more than politeness - they told you someone's sex, marital status, "
+        "and roughly their age. 'Master' was used specifically for young boys; 'Mrs' for married "
+        "women; 'Miss' for unmarried women; 'Mr' covered all adult men. The survival rates by title "
+        "essentially restate the sex + age story in a single feature: Mrs/Miss/Master all did "
+        "well; Mr did worst at 16%. For predictive modeling, Title is often a more useful single "
+        "feature than Sex or Age alone."
     )
     pdf.add_image(CHART_DIR / "title_survival.png", w=170)
     df2 = df.copy()
@@ -919,11 +1360,12 @@ def generate_pdf(df, output_path: Path):
     )
 
     pdf.add_page()
-    pdf.section_title("12. SibSp & Parch Survival Patterns")
+    pdf.section_title("15. SibSp & Parch Survival Patterns")
     pdf.body_text(
-        "The number of siblings/spouses (SibSp) and parents/children (Parch) aboard "
-        "show non-linear relationships with survival. Having 1-2 siblings or 1-3 "
-        "parents/children was associated with higher survival rates."
+        "Decomposing 'family size' into its parts. SibSp = number of siblings + spouse aboard; "
+        "Parch = number of parents + children aboard. Both show the same non-linear shape: a small "
+        "number boosts survival, but going past 3-4 drops it back down. The takeaway is the same "
+        "as section 12 - having a small support group helped, but a chaotic large family hurt."
     )
     pdf.add_image(CHART_DIR / "sibsp_parch_survival.png", w=190)
     pdf.sub_title("SibSp Survival Rates")
@@ -949,11 +1391,50 @@ def generate_pdf(df, output_path: Path):
     )
 
     pdf.add_page()
-    pdf.section_title("13. Correlation Analysis")
+    pdf.section_title("16. Lifeboat Records & Survival")
     pdf.body_text(
-        "The correlation matrix shows relationships between numerical features. "
-        "Fare has the strongest positive correlation with survival (r=0.257), "
-        "while Pclass has a negative correlation (r=-0.338, not shown as it's ordinal)."
+        "Everything in this report so far is about who was likely to survive. This section is about "
+        "the actual mechanism: did you get onto a lifeboat? Of 1,309 passengers, only 486 have a "
+        "recorded lifeboat number - and 479 of them survived (98.6%). Of the 823 with no boat "
+        "record, only 21 survived (2.6%). Lifeboat access wasn't correlated with survival; it was "
+        "essentially identical to it. That is why sex and class mattered so much: they were the "
+        "rules that decided who got onto a boat."
+    )
+    pdf.add_image(CHART_DIR / "lifeboat_survival.png", w=190)
+    has_boat = df_eng["Lifeboat"].notna()
+    n_boat = int(has_boat.sum())
+    s_boat = int(df_eng.loc[has_boat, "Survived"].sum())
+    n_no = int((~has_boat).sum())
+    s_no = int(df_eng.loc[~has_boat, "Survived"].sum())
+    rate_boat = s_boat / n_boat * 100 if n_boat else 0
+    rate_no = s_no / n_no * 100 if n_no else 0
+    lo_b, hi_b = wilson_ci(s_boat, n_boat) if n_boat else (0, 0)
+    lo_n, hi_n = wilson_ci(s_no, n_no) if n_no else (0, 0)
+    pdf.add_table(
+        ["Group", "n", "Survived", "Rate", "95% CI"],
+        [["On Lifeboat", n_boat, s_boat, f"{rate_boat:.1f}%", f"[{lo_b:.1f}, {hi_b:.1f}]"],
+         ["No Record", n_no, s_no, f"{rate_no:.1f}%", f"[{lo_n:.1f}, {hi_n:.1f}]"]],
+        [55, 30, 35, 35, 35],
+    )
+    pdf.inference_box(
+        "What this means in plain English",
+        f"Getting on a lifeboat almost guaranteed survival ({rate_boat:.1f}%). Not getting on one "
+        f"almost guaranteed death ({rate_no:.1f}%). The {rate_boat - rate_no:.0f}-percentage-point "
+        "gap is the entire story of this disaster in one number. Everything else this report has "
+        "measured - sex, class, age, fare, port - was really just measuring 'who had access to a "
+        "lifeboat seat'.",
+        color=(34, 197, 94),
+    )
+
+    pdf.add_page()
+    pdf.section_title("17. Correlation Analysis")
+    pdf.body_text(
+        "Correlation answers a simple question: when one number goes up, does another go up, down, "
+        "or stay the same? The values run from -1 (always opposite) to +1 (always together); 0 "
+        "means no relationship. Numbers below 0.1 in absolute value are basically nothing. The "
+        "strongest relationship with survival in this matrix is Fare (r=0.247) - knowing the fare "
+        "tells you a moderate amount about whether someone survived, but nothing close to what "
+        "knowing their sex would tell you."
     )
     pdf.add_image(CHART_DIR / "correlation_heatmap.png", w=150)
     corr = correlation_analysis(df)
@@ -975,10 +1456,14 @@ def generate_pdf(df, output_path: Path):
     )
 
     pdf.add_page()
-    pdf.section_title("14. Statistical Tests & Significance")
+    pdf.section_title("18. Statistical Tests & Significance")
     pdf.body_text(
-        "To validate the observed patterns, we perform several statistical tests "
-        "to determine if the differences are statistically significant."
+        "Every pattern in this report could, in principle, be just an accident of sampling. "
+        "Statistical tests rule that out. They each produce a 'p-value' - the probability that you'd "
+        "see the observed pattern even if there were really no underlying effect. The standard "
+        "thresholds: p < 0.05 means 'probably not chance', p < 0.001 means 'almost certainly not "
+        "chance'. The patterns in this report comfortably clear those thresholds - in some cases by "
+        "many orders of magnitude."
     )
 
     pdf.sub_title("Chi-Square Test: Sex vs Survival")
@@ -989,10 +1474,11 @@ def generate_pdf(df, output_path: Path):
     pdf.bullet(f"P-value: {p_sex:.2e}")
     pdf.bullet(f"Result: {'Highly significant' if p_sex < 0.001 else 'Significant'} (p < 0.001)")
     pdf.inference_box(
-        "Inference",
-        "The extremely low p-value confirms that gender and survival are strongly "
-        "associated. The 'women and children first' protocol was not just a guideline "
-        "but a statistically decisive factor in survival outcomes.",
+        "What this means in plain English",
+        "There is effectively zero chance the sex-survival gap is a fluke. The p-value here is so "
+        "small that the chance of seeing this pattern accidentally is roughly 1 in 10 to the 81st "
+        "power - far beyond any reasonable threshold. The 'women first' protocol wasn't a guideline; "
+        "it was the single biggest determinant of who lived.",
         color=(59, 130, 246),
     )
 
@@ -1004,10 +1490,11 @@ def generate_pdf(df, output_path: Path):
     pdf.bullet(f"P-value: {p_pc:.2e}")
     pdf.bullet(f"Result: {'Highly significant' if p_pc < 0.001 else 'Significant'} (p < 0.001)")
     pdf.inference_box(
-        "Inference",
-        "Ticket class is significantly associated with survival. First-class passengers "
-        "had substantially better odds, likely due to cabin location on upper decks "
-        "closer to lifeboats, priority boarding, and better information access.",
+        "What this means in plain English",
+        "The class-survival difference is overwhelmingly real (p far below 0.001). 1st-class "
+        "passengers didn't just get lucky - they were systematically advantaged. Their cabins were "
+        "on upper decks closer to the boat deck, they got priority boarding, and they had better "
+        "access to information about what was happening as the ship sank.",
         color=(139, 92, 246),
     )
 
@@ -1019,10 +1506,11 @@ def generate_pdf(df, output_path: Path):
     pdf.bullet(f"P-value: {p_emb:.4f}")
     pdf.bullet(f"Result: {'Significant' if p_emb < 0.05 else 'Not significant'} (p {'< 0.05' if p_emb < 0.05 else '> 0.05'})")
     pdf.inference_box(
-        "Inference",
-        "Embarkation port is significantly associated with survival. This is likely "
-        "confounded with class, as Cherbourg had more first-class passengers while "
-        "Southampton had predominantly third-class passengers.",
+        "What this means in plain English",
+        "Port is statistically associated with survival, but this is a textbook 'confounded' "
+        "result. Cherbourg's higher survival rate isn't because boarding there saved lives - it's "
+        "because Cherbourg happened to be where most 1st-class passengers boarded. Adjust for "
+        "class and most of the port effect disappears.",
         color=(245, 158, 11),
     )
 
@@ -1036,10 +1524,11 @@ def generate_pdf(df, output_path: Path):
     pdf.bullet(f"Mean age (perished): {perished_age.mean():.1f}")
     pdf.bullet(f"Result: {'Significant' if p_age < 0.05 else 'Not significant'} (p {'< 0.05' if p_age < 0.05 else '> 0.05'})")
     pdf.inference_box(
-        "Inference",
-        "The age difference between survivors and non-survivors is statistically significant. "
-        "Survivors were on average younger (28.3 years vs 30.6 years), consistent with "
-        "the 'children first' evacuation priority. However, the effect size is modest.",
+        "What this means in plain English",
+        "Survivors were about 1 year younger on average than non-survivors (28.9 vs 29.9 years). "
+        "The difference is statistically real but small in practical terms. Age matters mostly at "
+        "the extremes - children specifically benefited from the evacuation priority; the typical "
+        "adult age gap had only a modest effect.",
         color=(34, 197, 94),
     )
 
@@ -1053,10 +1542,11 @@ def generate_pdf(df, output_path: Path):
     pdf.bullet(f"Mean fare (perished): ${perished_fare.mean():.2f}")
     pdf.bullet(f"Result: Highly significant (p < 0.001)")
     pdf.inference_box(
-        "Inference",
-        "The fare difference between survivors and non-survivors is highly significant. "
-        "Survivors paid an average of $48.40 vs $22.14 for non-survivors. This confirms "
-        "that socioeconomic status (as proxied by fare) was a major determinant of survival.",
+        "What this means in plain English",
+        "Survivors paid more than twice the fare of non-survivors on average ($49.63 vs $23.19). "
+        "The difference is overwhelmingly real (p < 0.001). But this is mostly because expensive "
+        "tickets bought 1st-class accommodation; fare is doing the work of class here, not adding "
+        "its own independent effect.",
         color=(239, 68, 68),
     )
 
@@ -1069,10 +1559,11 @@ def generate_pdf(df, output_path: Path):
     pdf.bullet(f"P-value: {p_anova_age:.4f}")
     pdf.bullet(f"Result: {'Significant' if p_anova_age < 0.05 else 'Not significant'} (p {'< 0.05' if p_anova_age < 0.05 else '> 0.05'})")
     pdf.inference_box(
-        "Inference",
-        "Survival rates differ significantly across age groups. The ANOVA confirms that "
-        "age is not uniformly distributed in terms of survival outcomes, with children "
-        "and certain adult age groups having distinctly different survival probabilities.",
+        "What this means in plain English",
+        "Survival rates are not the same across age groups - ANOVA confirms the differences are "
+        "real (p < 0.05). Children 0-16 stand out at ~49%; the elderly (65+) had the worst odds. "
+        "Adult age groups in between are roughly similar, which is why the overall effect of age "
+        "looks 'small' even though the children-first effect is genuine.",
         color=(59, 130, 246),
     )
 
@@ -1092,22 +1583,18 @@ def generate_pdf(df, output_path: Path):
     )
 
     pdf.add_page()
-    pdf.section_title("15. Key Findings & Conclusion")
+    pdf.section_title("19. Key Findings & Conclusion")
     pdf.sub_title("Summary of Findings")
 
     findings = [
-        "Gender was the strongest predictor of survival: 72.8% of women survived vs. 19.1% of men. The Chi-square test confirms this association is highly significant (p < 2.2e-16), validating the 'women and children first' evacuation protocol.",
-        "Ticket class had a major impact: 1st class passengers survived at 62.0% vs. 25.5% for 3rd class. The Chi-square test (p < 2.2e-16) confirms socioeconomic privilege was a decisive factor in survival.",
-        "Children (0-16) had a 49.0% survival rate, significantly higher than adults. ANOVA across age groups confirms survival rates differ significantly by age (p < 0.05).",
-        "Higher fare passengers survived at higher rates. The T-test confirms survivors paid significantly more ($48.40 vs $22.14, p < 2.2e-16). The Fare-Survived correlation (r=0.257) is the strongest numerical predictor.",
-        "Passengers from Cherbourg had the highest survival rate (56.6%), confounded with class composition. The Chi-square test confirms this association is significant (p < 0.05).",
-        "Small families (2-4 members) had better survival odds than solo travelers (34.5%) or large families, suggesting mutual aid during evacuation. The Parch-Survived correlation (r=0.082) indicates a weak but positive family effect.",
-        "First-class women had a 96.5% survival rate, while third-class men had only 15.2%, showing the compounding effect of class and gender. This is the most extreme survival disparity in the dataset.",
-        "Titles extracted from names confirm social hierarchy: 'Mrs' (78.2%), 'Miss' (67.7%), and 'Master' (50.8%) had high survival rates, while 'Mr' had only 16.2%, reflecting gender and age biases.",
-        "The Age-Survived T-test (p=0.04) shows survivors were slightly younger on average (28.3 vs 30.6 years), but the effect size is modest compared to gender and class effects.",
-        "SibSp and Parch show non-linear relationships: having 1-2 siblings or 1-3 parents/children was associated with 45-55% survival, while having none or many reduced odds to 30-35%.",
-        "The SibSp-Age negative correlation (r=-0.308) reveals younger passengers traveled with more siblings, while the Parch-Fare positive correlation (r=0.216) shows families with children paid higher fares.",
-        "Occupation data (47.4% missing) is too sparse for direct analysis, but extracting deck letters could reveal cabin location effects on survival, as upper-deck cabins were closer to lifeboats.",
+        "Gender was the strongest predictor: 72.8% of women survived vs 19.1% of men. Chi-square confirms the association is decisive (p < 2.2e-16, Cramer's V approx 0.53, Large).",
+        "Class was the second-strongest: 1st class 62.0% vs 3rd class 25.5% (p < 2.2e-16). Class compounds with sex - 1st-class women 96.5%, 3rd-class men 15.2%.",
+        "Children (0-16) survived at 49.0% vs ~37% for adults. Modest individual effect but ANOVA confirms age-group differences are real (p < 0.05).",
+        "Fare is the strongest numerical signal (r=0.247, t-test p < 2.2e-16; survivors mean $49.63 vs perished $23.19) but largely a proxy for class.",
+        "Family-size shows a sweet spot: 1-2 siblings or 1-3 parents/children correlate with 45-55% survival; solo travelers and large families both drop to 30-35%.",
+        "Embarkation port is significant in raw terms (Cherbourg 56.6%, Southampton 33.4%) but the effect is confounded with class - Cherbourg embarked disproportionately many 1st-class passengers.",
+        "Titles encode the gender + age structure: Mrs 78.2%, Miss 67.7%, Master 50.8%, Mr 16.2%. Useful as a single derived feature for downstream modeling.",
+        "Lifeboat records confirm the causal pathway: 98.6% of recorded boat passengers survived, vs 2.6% without a boat record. Sex/class/age predicted who got onto a boat.",
     ]
     for i, finding in enumerate(findings, 1):
         pdf.bullet(finding)
@@ -1115,25 +1602,20 @@ def generate_pdf(df, output_path: Path):
 
     pdf.sub_title("Conclusion")
     pdf.body_text(
-        "The Titanic disaster survival patterns were driven primarily by gender, socioeconomic "
-        "status (class/fare), and age. The 'women and children first' protocol was largely "
-        "followed, but class privilege significantly modulated access to lifeboats. Statistical "
-        "tests confirm all major associations are highly significant (p < 0.001). First-class "
-        "passengers, particularly women, had the best survival odds, while third-class men faced "
-        "the worst outcomes. Family size showed a non-linear relationship with survival, with "
-        "small families having the best odds. These findings highlight how social hierarchies "
-        "persisted even in life-threatening emergencies, and how demographic factors interact "
-        "to determine survival outcomes in crisis situations."
+        "Survival was determined by who got onto a lifeboat - and that was determined by sex, "
+        "class, and (more weakly) age. The 'women and children first' protocol was real and "
+        "measurable, but class privilege strongly modulated it. All major associations are "
+        "highly significant (p < 0.001) and the effect-size ranking is unambiguous: Sex > Class "
+        "> Fare > Embarked > Age."
     )
-    pdf.ln(4)
+    pdf.ln(2)
 
     pdf.sub_title("Limitations & Future Work")
     pdf.body_text(
-        "The Occupation column is 47.4% missing, limiting cabin-based analysis. Age has 3.9% "
-        "missing values that could bias age-related findings. Future work should include "
-        "feature engineering (extracting deck letters from Occupation, imputing Age by class/gender), "
-        "predictive modeling (Logistic Regression, Random Forest, XGBoost), and SHAP-based "
-        "feature importance analysis to quantify each factor's contribution to survival."
+        "Occupation is 47.4% missing and Age is 3.9% missing - both could bias subgroup analyses. "
+        "Lifeboat-based analysis is descriptive, not causal: getting onto a boat is downstream of "
+        "the social hierarchies this report studies. Natural extensions: logistic regression with "
+        "interaction terms, SHAP-based feature attributions, and a holdout-validated survival model."
     )
 
     pdf.output(str(output_path))

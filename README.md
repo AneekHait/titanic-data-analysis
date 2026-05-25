@@ -1,137 +1,169 @@
-# Titanic EDA
+# Titanic Survival Analysis
 
-Exploratory Data Analysis of the Titanic passenger dataset — a structured Python project with CLI tools, interactive dashboard, and detailed PDF report.
+A complete exploratory analysis of the **titanic5** passenger dataset (1,309 passengers, 14 features). The project quantifies who survived and why, validates every claim with formal statistical tests, and ships three production-quality deliverables: an **interactive HTML dashboard**, a **comprehensive analyst report** (DOCX + PDF), and a **classical EDA report PDF**.
 
-## Quick Start
+**Author:** [Aneek Hait](https://aneekhait.github.io)
+**License:** [MIT](LICENSE)
+**Dataset:** [titanic5](https://hbiostat.org/data/repo/titanic5.csv) — Encyclopedia Titanica / Vanderbilt Biostatistics
+
+---
+
+## What you'll find here
+
+### 📊 Three deliverables
+
+| Output | Audience | Path |
+|---|---|---|
+| **Interactive dashboard** (Chart.js, dark + light themes, scroll-spy nav) | Anyone exploring the data | [dashboard/index.html](dashboard/index.html) |
+| **Analyst report — DOCX (editable)** | Stakeholders, hiring managers, peer review | [reports/Titanic_Survival_Analyst_Report.docx](reports/Titanic_Survival_Analyst_Report.docx) |
+| **Analyst report — PDF** | Same content, fixed-layout for distribution | [reports/Titanic_Survival_Analyst_Report.pdf](reports/Titanic_Survival_Analyst_Report.pdf) |
+| **Classical EDA report** (generated via fpdf2) | Legacy / chart-heavy view | [dashboard/titanic_eda_report.pdf](dashboard/titanic_eda_report.pdf) |
+
+### 🧰 Reusable Python package
+A clean `src/` layout: data loading, cleaning, feature engineering, EDA, statistics, plotting — all unit-tested.
+
+---
+
+## Quick start
 
 ```bash
 git clone https://github.com/AneekHait/titanic-data-analysis.git
 cd titanic-data-analysis
 make install       # install dependencies
-make download      # fetch the dataset (1,309 passengers)
-make eda           # run full analysis + generate 8 charts
+make download      # fetch the titanic5 CSV (~1 MB)
+make eda           # run the full EDA pipeline + write 8 charts
+make dashboard     # build the interactive HTML dashboard
+make report        # build the analyst DOCX + PDF
+make test          # 49 pytest tests
 ```
 
-## Project Structure
+Outputs land in `dashboard/`, `reports/`, and `outputs/figures/`.
 
-```
-titanic-eda/
-├── src/                          # Reusable Python package
-│   ├── config.py                 # Paths, constants, column definitions
-│   ├── data/
-│   │   └── loader.py             # Download & load Titanic CSV
-│   ├── analysis/
-│   │   └── eda.py                # Stats, survival rates, correlations
-│   └── visualization/
-│       └── plots.py              # 8 reusable chart functions
-├── scripts/
-│   ├── download_data.py          # One-shot data download
-│   └── run_eda.py                # CLI entry point (click)
-├── dashboard/
-│   ├── generate.py               # Interactive HTML dashboard generator
-│   ├── index.html                # Generated Chart.js dashboard
-│   ├── generate_pdf.py           # PDF report generator
-│   └── titanic_eda_report.pdf    # Generated 14-page report
-├── notebooks/
-│   └── 01_exploratory_analysis.ipynb  # Jupyter walkthrough
-├── tests/
-│   └── test_loader.py            # pytest test suite
-├── data/raw/                     # Raw dataset (gitignored)
-├── outputs/figures/              # Generated PNG charts
-├── requirements.txt
-├── pyproject.toml
-└── Makefile
-```
+---
 
-## Features
-
-### CLI Analysis
-
-```bash
-python scripts/run_eda.py              # full report + all charts
-python scripts/run_eda.py --no-plots   # stats only, skip chart generation
-python scripts/run_eda.py --data path/to/custom.csv  # use your own data
-```
-
-Produces:
-- Data overview (shape, dtypes, summary statistics)
-- Missing value analysis
-- Survival rate by Sex, Pclass, Embarked
-- Survival by Age and Fare (binned)
-- Correlation matrix
-- 8 PNG charts in `outputs/figures/`
-- Key insights summary
-
-### Interactive Dashboard
-
-```bash
-python dashboard/generate.py   # generates dashboard/index.html
-```
-
-Features:
-- Sidebar navigation with smooth scrolling
-- 10 interactive Chart.js charts
-- Animated stat counters
-- Dark/Light theme toggle
-- Mobile responsive
-- Correlation heatmap
-- Missing values with progress bars
-
-### PDF Report
-
-```bash
-python dashboard/generate_pdf.py   # generates dashboard/titanic_eda_report.pdf
-```
-
-A 14-page professional report with:
-- Cover page and table of contents
-- 11 embedded charts (survival, age, fare, class, gender, correlation, etc.)
-- Data tables with formatted statistics
-- 8 key findings with detailed analysis
-- Conclusion section
-
-## Key Findings
+## Headline findings
 
 | Factor | Finding |
 |---|---|
-| **Overall** | Only 38.4% of passengers survived |
-| **Gender** | Women: 72.8% survival vs Men: 19.1% |
-| **Class** | 1st: 62.0%, 2nd: 42.8%, 3rd: 25.5% |
-| **Age** | Children (0-16): 49.0% survival |
-| **Fare** | Top quintile ($42-$512): 62.2% survival |
-| **Port** | Cherbourg: 56.6% (highest) |
-| **Family** | Small families (2-4) had best odds |
-| **Title** | Mrs: 78.2%, Mr: 16.2% |
+| **Overall** | 38.2% of 1,309 passengers survived (500 lived, 809 perished) |
+| **Sex** | Women 72.8% vs men 19.1% — odds ratio ≈ **11.3×** |
+| **Class** | 1st 62.0%, 2nd 42.8%, 3rd 25.5% (Cramer's V ≈ 0.31) |
+| **Class × Sex** | 1st-class women 96.5% vs 3rd-class men 15.2% — an 81-pp gap |
+| **Age** | Children (≤16) survived at 49.0%; "children first" was real but small (OR ≈ 1.7×) |
+| **Fare** | Strongest numeric predictor (r = 0.247), but mostly a proxy for class |
+| **Embarked** | Cherbourg 56.6% — confounded with class composition |
+| **Lifeboat (mechanism)** | 98.6% of recorded boat occupants survived vs 2.6% without a boat record |
 
-## Tech Stack
+Effect-size ranking (single comparable scale, |r| or Cramer's V):
 
-- **pandas** — data wrangling
-- **numpy** — numerical operations
-- **matplotlib + seaborn** — static visualizations
-- **Chart.js** — interactive dashboard charts
-- **fpdf2** — PDF report generation
-- **click** — CLI argument parsing
-- **pytest** — testing framework
+```
+Sex      ▰▰▰▰▰▰▰▰▰▰▰▰▰  0.527  (Large)
+Pclass   ▰▰▰▰▰▰▰         0.313  (Medium)
+Fare     ▰▰▰▰▰           0.247  (Small)
+Embarked ▰▰▰▰            0.204  (Small)
+Parch    ▰▰              0.083  (Negligible)
+Age      ▰              -0.031  (Negligible)
+SibSp    ▰              -0.028  (Negligible)
+```
 
-## Commands
+---
 
-| Command | Description |
+## Project structure
+
+```
+titanic-data-analysis/
+├── src/                          # Python package (installable, tested)
+│   ├── config.py                 # Paths and constants
+│   ├── data/
+│   │   ├── loader.py             # Download & load CSV
+│   │   └── processing.py         # clean_data + engineer_features
+│   ├── analysis/
+│   │   ├── eda.py                # Survival rates, missing values
+│   │   ├── statistics.py         # Chi², t-test, ANOVA, Cohen's d, Cramer's V
+│   │   └── inference.py          # Wilson CIs, odds ratios, joint tables
+│   └── visualization/
+│       └── plots.py              # Reusable Matplotlib plot functions
+├── scripts/
+│   ├── download_data.py          # Fetch titanic5.csv
+│   └── run_eda.py                # CLI EDA entry point (click)
+├── dashboard/                    # Interactive Chart.js dashboard
+│   ├── generate.py               # Builds index.html
+│   ├── generate_pdf.py           # Builds the classical EDA PDF
+│   ├── index.html                # ← published dashboard
+│   └── titanic_eda_report.pdf    # ← published classical PDF
+├── reports/                      # Author-written analyst report
+│   ├── build_analyst_report.py
+│   ├── validate_dataset.py       # Cross-stage count reconciliation
+│   ├── Titanic_Survival_Analyst_Report.docx
+│   └── Titanic_Survival_Analyst_Report.pdf
+├── notebooks/
+│   └── 01_exploratory_analysis.ipynb
+├── tests/                        # 49 pytest tests across 5 files
+├── docs/                         # Methodology, data dictionary, dev guide
+│   ├── METHODOLOGY.md
+│   ├── DATA.md
+│   └── DEVELOPMENT.md
+├── data/raw/                     # titanic5.csv (gitignored)
+├── Dockerfile
+├── Makefile
+├── pyproject.toml
+├── requirements.txt
+├── README.md                     # ← you are here
+├── CHANGELOG.md
+├── CONTRIBUTING.md
+├── ROADMAP.md                    # What's still aspirational
+├── LICENSE                       # MIT
+└── AGENTS.md                     # Notes for AI coding agents
+```
+
+---
+
+## Documentation
+
+| Doc | What's inside |
 |---|---|
-| `make install` | Install all dependencies |
-| `make download` | Download the Titanic dataset |
-| `make eda` | Run full EDA analysis |
-| `make test` | Run pytest test suite |
-| `make clean` | Remove generated files |
+| [docs/METHODOLOGY.md](docs/METHODOLOGY.md) | Analytical approach, statistical machinery, why each test was chosen |
+| [docs/DATA.md](docs/DATA.md) | Data dictionary, source, cleaning rules, engineered features |
+| [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md) | Local setup, running the suite, adding a feature |
+| [reports/README.md](reports/README.md) | Index of generated reports and how to rebuild them |
+| [dashboard/README.md](dashboard/README.md) | What's in the dashboard, how to regenerate, theme notes |
+| [AGENTS.md](AGENTS.md) | Repo-specific notes for AI agents (Claude Code, Cursor, etc.) |
+| [CONTRIBUTING.md](CONTRIBUTING.md) | How to propose changes |
+| [CHANGELOG.md](CHANGELOG.md) | Recent improvements |
+| [ROADMAP.md](ROADMAP.md) | Outstanding ideas (ML modelling, Streamlit app, MLflow, etc.) |
 
-## Dataset
+---
 
-Source: [titanic5 — Vanderbilt Biostatistics](https://hbiostat.org/data/repo/titanic5.csv) (Encyclopedia Titanica)
+## Tech stack
 
-- **1,309 passengers**, 14 features
-- Features: PassengerId, Survived, Pclass, Name, Sex, Age, SibSp, Parch, Ticket, Fare, Embarked, Occupation, BoatBody, NameId
-- Missing values: Occupation (47.4%), Age (3.9%)
-- 47% more data than the Kaggle train set, with 5x fewer missing ages
+**Core:** pandas, numpy, scipy, matplotlib, seaborn, click
+**Reports:** fpdf2 (classical PDF), python-docx (analyst DOCX), Chart.js (interactive dashboard)
+**Tooling:** pytest, ruff, pre-commit, GitHub Actions, Docker
 
-## License
+---
 
-MIT
+## Reproducibility
+
+- **Dataset is gitignored.** `make download` fetches it from `hbiostat.org` on demand.
+- **All numbers in every output trace to the same engineered DataFrame.** Run `python reports/validate_dataset.py` to verify counts reconcile across raw → cleaned → engineered.
+- **CI runs the full pytest suite on every push** ([.github/workflows/ci.yml](.github/workflows/ci.yml)).
+- **Docker:** `docker build -t titanic-eda . && docker run titanic-eda`.
+
+---
+
+## A note on this project
+
+The classical PDF report ([dashboard/titanic_eda_report.pdf](dashboard/titanic_eda_report.pdf)) is the original output — generated programmatically by `generate_pdf.py`. It's chart-heavy and section-by-section.
+
+The analyst report ([reports/Titanic_Survival_Analyst_Report.docx](reports/Titanic_Survival_Analyst_Report.docx)) is what I'd hand to a stakeholder — written as a narrative, with an executive summary, a glossary, and a "What this means in plain English" callout under every statistical finding. The DOCX is editable; the PDF is fixed-layout. The dashboard is the same content as an interactive page with hover tooltips, CIs as error bars, scroll-spy nav, and dark/light themes.
+
+If you only have time for one: open the dashboard.
+
+---
+
+## Acknowledgements
+
+- The titanic5 dataset is curated by [Encyclopedia Titanica](https://www.encyclopedia-titanica.org/) and hosted by [Vanderbilt Biostatistics](https://hbiostat.org/data/).
+- Statistical methodology references: Wilson 1927 (score interval), Cohen 1988 (effect sizes), Cramer 1946 (Cramer's V).
+
+Built by **[Aneek Hait](https://aneekhait.github.io)**.

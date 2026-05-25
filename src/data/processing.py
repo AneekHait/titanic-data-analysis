@@ -58,10 +58,17 @@ def _extract_title(name: str) -> str:
 
 
 def _parse_boat_body(val) -> tuple[str | None, str | None]:
-    """Parse BoatBody column into lifeboat and body recovery."""
+    """Parse BoatBody column into lifeboat and body recovery.
+
+    Raw values include real boat numbers/letters ("1", "A"), bracketed body
+    recovery codes ("[190]"), and blank whitespace strings for passengers with
+    no recorded disposition.
+    """
     if pd.isna(val):
         return None, None
     s = str(val).strip()
+    if not s:
+        return None, None
     if s.startswith("[") and s.endswith("]"):
         return None, s.strip("[]")
     return s, None
