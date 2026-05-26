@@ -5,7 +5,77 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 import json
 import math
+import re
 import pandas as pd
+
+REPO_ROOT = Path(__file__).resolve().parents[1]
+REPORT_PATH = REPO_ROOT / "REPORT.md"
+GH_BLOB = "https://github.com/AneekHait/titanic-data-analysis/blob/main/"
+
+
+def _slugify(s: str) -> str:
+    s = re.sub(r"[^a-z0-9]+", "-", s.lower()).strip("-")
+    return s or "section"
+
+
+def _strip_leading_number(title: str) -> str:
+    return re.sub(r"^\d+\.\s*", "", title).strip()
+
+
+def _rewrite_report_links(md_text: str) -> str:
+    """Make REPORT.md links work when embedded in the dashboard (local + Pages)."""
+    md_text = re.sub(r"\]\(dashboard/_pdf_charts/", "](_pdf_charts/", md_text)
+    md_text = md_text.replace("](dashboard/index.html)", "](#)")
+    md_text = re.sub(r"\]\((reports/[^)]+)\)", rf"]({GH_BLOB}\1)", md_text)
+    md_text = re.sub(r"\]\((docs/[^)]+)\)", rf"]({GH_BLOB}\1)", md_text)
+    return md_text
+
+
+def build_report_blocks():
+    """Read REPORT.md, split at H2 headings, return (nav_html, sections_html)."""
+    try:
+        import markdown as md
+    except ImportError:
+        return "", ""
+    if not REPORT_PATH.exists():
+        return "", ""
+
+    text = REPORT_PATH.read_text(encoding="utf-8")
+    text = _rewrite_report_links(text)
+
+    # Drop everything before the first level-2 heading (title + front-matter).
+    m = re.search(r"(?m)^## ", text)
+    body = text[m.start():] if m else text
+
+    chunks = [c for c in re.split(r"(?m)^## ", body) if c.strip()]
+
+    md_renderer = md.Markdown(extensions=["extra", "tables", "sane_lists"])
+    nav_links: list[str] = []
+    sections: list[str] = []
+
+    for chunk in chunks:
+        nl = chunk.find("\n")
+        title = chunk[:nl].strip() if nl != -1 else chunk.strip()
+        body_md = chunk[nl + 1:] if nl != -1 else ""
+        rendered = md_renderer.convert(f"## {title}\n{body_md}")
+        md_renderer.reset()
+
+        sid = f"report-{_slugify(title)}"
+        nav_label = _strip_leading_number(title)
+        nav_links.append(
+            f'    <a href="#{sid}" class="sub"><span class="icon">›</span> {nav_label}</a>'
+        )
+        sections.append(
+            f'  <section id="{sid}" class="md-section">\n'
+            f'    <div class="md-content">{rendered}</div>\n'
+            f'  </section>'
+        )
+
+    nav_html = (
+        '    <div class="group-label">\U0001F4D6 Analyst Report</div>\n'
+        + "\n".join(nav_links)
+    )
+    return nav_html, "\n\n".join(sections)
 
 from src.data.loader import load_titanic
 from src.data.processing import clean_data, engineer_features
@@ -161,6 +231,7 @@ def build_data(df_raw):
 def generate_dashboard(df_raw, output_path: Path):
     data = build_data(df_raw)
     js_data = json.dumps(data)
+    report_nav_html, report_sections_html = build_report_blocks()
 
     sex_data = data["sex_ci"]
     pclass_data = data["pclass_ci"]
@@ -340,6 +411,89 @@ body {{
 .sidebar-nav a.active {{ background: var(--bg-hover); color: var(--accent);
   border-left-color: var(--accent); }}
 .sidebar-nav a .icon {{ width: 18px; text-align: center; font-size: 0.95rem; opacity: 0.9; }}
+.sidebar-nav .group-label {{
+  font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.08em;
+  color: var(--text-muted); padding: 0.85rem 0.75rem 0.4rem; font-weight: 700;
+  border-top: 1px solid var(--border); margin-top: 0.5rem;
+  display: flex; align-items: center; gap: 0.4rem;
+}}
+.sidebar-nav a.sub {{ font-size: 0.82rem; padding-left: 1.25rem; }}
+.sidebar-nav a.sub .icon {{ font-size: 0.85rem; opacity: 0.55; }}
+
+.md-divider {{
+  margin: 2.5rem 0 1.25rem; padding: 1.1rem 1.4rem;
+  background: linear-gradient(90deg, var(--bg-card), var(--bg-secondary));
+  border: 1px solid var(--border); border-left: 3px solid var(--accent);
+  border-radius: 12px; box-shadow: var(--shadow-card);
+}}
+.md-divider-label {{
+  font-size: 1.05rem; font-weight: 800; letter-spacing: -0.01em;
+  color: var(--text-primary); margin-bottom: 0.3rem;
+}}
+.md-divider-desc {{
+  color: var(--text-secondary); font-size: 0.9rem; max-width: 80ch; line-height: 1.55;
+}}
+
+.md-section {{ scroll-margin-top: 1.5rem; }}
+.md-section .md-content {{
+  background: var(--bg-card); border: 1px solid var(--border);
+  border-radius: 12px; padding: 1.4rem 1.6rem;
+  box-shadow: var(--shadow-card); margin-bottom: 1.25rem;
+  color: var(--text-secondary); font-size: 0.95rem; line-height: 1.62;
+}}
+.md-section .md-content > *:first-child {{ margin-top: 0; }}
+.md-section .md-content h2 {{
+  font-size: 1.18rem; font-weight: 800; letter-spacing: -0.01em;
+  color: var(--text-primary); margin-bottom: 0.65rem;
+  padding-bottom: 0.5rem; border-bottom: 1px solid var(--border);
+}}
+.md-section .md-content h3 {{
+  font-size: 1rem; font-weight: 700; color: var(--text-primary);
+  margin: 1.4rem 0 0.45rem;
+}}
+.md-section .md-content h4 {{
+  font-size: 0.9rem; font-weight: 700; color: var(--text-primary);
+  margin: 1.1rem 0 0.35rem;
+}}
+.md-section .md-content p {{ margin: 0 0 0.7rem; }}
+.md-section .md-content strong {{ color: var(--text-primary); font-weight: 700; }}
+.md-section .md-content em {{ color: var(--text-primary); }}
+.md-section .md-content a {{ color: var(--accent); text-decoration: none; }}
+.md-section .md-content a:hover {{ text-decoration: underline; }}
+.md-section .md-content ul,
+.md-section .md-content ol {{ padding-left: 1.35rem; margin: 0 0 0.85rem; }}
+.md-section .md-content li {{ margin-bottom: 0.32rem; }}
+.md-section .md-content blockquote {{
+  margin: 0.85rem 0; padding: 0.7rem 1rem;
+  background: rgba(96, 165, 250, 0.08); border-left: 3px solid var(--accent);
+  border-radius: 4px;
+}}
+.md-section .md-content blockquote p {{ margin-bottom: 0; }}
+.md-section .md-content code {{
+  font-family: 'JetBrains Mono', 'SF Mono', Consolas, monospace;
+  background: var(--bg-elev); color: var(--accent);
+  padding: 0.1em 0.4em; border-radius: 4px; font-size: 0.85em;
+  border: 1px solid var(--border);
+}}
+.md-section .md-content pre {{
+  background: var(--bg-elev); border: 1px solid var(--border);
+  border-radius: 8px; padding: 1rem; overflow-x: auto;
+  margin: 0.6rem 0 1rem; font-size: 0.85rem;
+}}
+.md-section .md-content pre code {{
+  background: transparent; border: none; padding: 0; color: var(--text-primary);
+}}
+.md-section .md-content hr {{
+  border: none; border-top: 1px solid var(--border); margin: 1.4rem 0;
+}}
+.md-section .md-content table {{ margin: 0.4rem 0 1rem; font-size: 0.88rem; }}
+.md-section .md-content img {{
+  display: block; max-width: 100%; height: auto;
+  border-radius: 8px; border: 1px solid var(--border);
+  margin: 0.85rem auto; box-shadow: var(--shadow-card);
+}}
+.light-theme .md-section .md-content blockquote {{ background: rgba(37, 99, 235, 0.08); }}
+.light-theme .md-section .md-content code {{ color: var(--accent-strong); }}
 .main {{ margin-left: var(--sidebar-width); padding: 2rem 2.5rem; min-height: 100vh; max-width: 1400px; }}
 .top-bar {{
   display: flex; justify-content: space-between; align-items: center;
@@ -513,6 +667,7 @@ code {{ font-family: 'JetBrains Mono', 'SF Mono', Consolas, monospace; font-size
     <a href="#correlation"><span class="icon">\U0001F517</span> Correlations</a>
     <a href="#missing"><span class="icon">⚠️</span> Missing Values</a>
     <a href="#insights"><span class="icon">\U0001F4A1</span> Key Insights</a>
+__REPORT_NAV__
   </nav>
 </aside>
 <main class="main">
@@ -772,6 +927,13 @@ code {{ font-family: 'JetBrains Mono', 'SF Mono', Consolas, monospace; font-size
       </ul>
     </div>
   </section>
+
+  <div class="md-divider">
+    <div class="md-divider-label">\U0001F4D6 Full Analyst Report</div>
+    <div class="md-divider-desc">The same narrative that ships as DOCX + PDF, rendered inline. Sections below are scroll-spy targets and link to the dashboard sub-sections above when they cover the same ground.</div>
+  </div>
+
+__REPORT_SECTIONS__
 
   <div class="footer">
     <div style="margin-bottom:0.5rem;">Prepared by <strong style="color:var(--accent);">Aneek Hait</strong> &middot;
@@ -1188,6 +1350,9 @@ document.querySelectorAll('.sidebar-nav a').forEach(link => {{
 </script>
 </body>
 </html>"""
+
+    html = html.replace("__REPORT_NAV__", report_nav_html)
+    html = html.replace("__REPORT_SECTIONS__", report_sections_html)
 
     output_path.parent.mkdir(parents=True, exist_ok=True)
     output_path.write_text(html, encoding="utf-8")
