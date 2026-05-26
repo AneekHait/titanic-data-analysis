@@ -320,7 +320,10 @@ def generate_dashboard(df_raw, output_path: Path):
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="theme-color" content="#0b1220" media="(prefers-color-scheme: dark)">
+<meta name="theme-color" content="#f5f7fb" media="(prefers-color-scheme: light)">
+<meta name="color-scheme" content="dark light">
 <title>Titanic Survival Analysis — Interactive EDA Dashboard</title>
 <meta name="description" content="Interactive exploratory data analysis of the Titanic dataset (1,309 passengers): survival rates by sex, class, age, fare, and embarkation, with 95% Wilson confidence intervals, odds ratios, chi-square tests, and effect sizes.">
 <meta name="keywords" content="Titanic, Titanic dataset, Titanic survival, exploratory data analysis, EDA, data analysis, data science, statistics, odds ratio, chi-square, Wilson confidence interval, Cramer's V, Cohen's d, Kaggle, machine learning, Python, pandas, dashboard">
@@ -630,25 +633,73 @@ code {{ font-family: 'JetBrains Mono', 'SF Mono', Consolas, monospace; font-size
 
 .footer {{ text-align: center; padding: 2rem; color: var(--text-muted); font-size: 0.82rem;
   border-top: 1px solid var(--border); margin-top: 2rem; }}
-.mobile-toggle {{ display: none; position: fixed; top: 1rem; left: 1rem; z-index: 200;
+.mobile-toggle {{ display: none; position: fixed; top: 0.75rem; left: 0.75rem; z-index: 200;
   background: var(--bg-secondary); border: 1px solid var(--border); color: var(--text-primary);
-  padding: 0.45rem 0.6rem; border-radius: 8px; cursor: pointer; font-size: 1.15rem; }}
+  min-width: 44px; min-height: 44px; padding: 0.45rem 0.7rem; border-radius: 10px;
+  cursor: pointer; font-size: 1.2rem; box-shadow: var(--shadow-card);
+  align-items: center; justify-content: center; }}
+.mobile-toggle:active {{ transform: scale(0.96); }}
+.sidebar-backdrop {{ display: none; position: fixed; inset: 0; z-index: 90;
+  background: rgba(0,0,0,0.55); opacity: 0; transition: opacity 0.2s; }}
+body.menu-open {{ overflow: hidden; }}
+body.menu-open .sidebar-backdrop {{ display: block; opacity: 1; }}
 @media (max-width: 900px) {{
   .compare {{ grid-template-columns: 1fr; }}
   .charts-grid {{ grid-template-columns: 1fr; }}
 }}
 @media (max-width: 768px) {{
-  .sidebar {{ transform: translateX(-100%); }}
-  .sidebar.open {{ transform: translateX(0); }}
-  .main {{ margin-left: 0; padding: 1rem; padding-top: 4rem; }}
-  .kpis {{ grid-template-columns: repeat(2, 1fr); }}
-  .mobile-toggle {{ display: block; }}
+  .sidebar {{ transform: translateX(-100%); width: min(280px, 84vw); padding: 1.25rem 0.9rem; }}
+  .sidebar.open {{ transform: translateX(0); box-shadow: 0 0 40px rgba(0,0,0,0.4); }}
+  .main {{ margin-left: 0; padding: 1rem; padding-top: 4rem; max-width: 100%; }}
+  .top-bar {{ flex-wrap: wrap; gap: 0.5rem; padding-left: 3.25rem; }}
+  .top-bar h1 {{ font-size: 1.15rem; }}
+  .top-bar h1 .sub {{ display: none; }}
+  .theme-toggle {{ padding: 0.4rem 0.7rem; font-size: 0.82rem; }}
+  .mobile-toggle {{ display: inline-flex; }}
+  .kpis {{ grid-template-columns: repeat(2, 1fr); gap: 0.6rem; }}
+  .kpi {{ padding: 0.8rem 0.85rem; }}
+  .kpi .value {{ font-size: 1.35rem; }}
+  .section-head {{ margin: 1.5rem 0 0.6rem; }}
+  .section-head h2 {{ font-size: 1.05rem; }}
+  .section-head .desc {{ font-size: 0.85rem; }}
+  .howto {{ padding: 0.9rem 1rem; }}
+  .howto-grid {{ grid-template-columns: 1fr; }}
+  .chart-card {{ padding: 0.8rem 0.85rem; }}
+  .chart-wrapper {{ height: 240px; }}
+  .chart-wrapper.tall {{ height: 290px; }}
+  .chart-wrapper.short {{ height: 200px; }}
+  /* Make data tables scrollable inside their card on phones */
+  .card,
+  section > .insights,
+  section > div:has(> table) {{ overflow-x: auto; -webkit-overflow-scrolling: touch; }}
+  table {{ font-size: 0.82rem; min-width: 520px; }}
+  th, td {{ padding: 0.45rem 0.6rem; }}
+  th {{ font-size: 0.66rem; }}
+  .insights {{ padding: 1rem 1.1rem; }}
+  .insights li {{ font-size: 0.86rem; }}
+  /* Markdown report content */
+  .md-section .md-content {{ padding: 1.1rem 1.15rem; font-size: 0.9rem; overflow-wrap: anywhere; }}
+  .md-section .md-content h2 {{ font-size: 1.05rem; }}
+  .md-section .md-content h3 {{ font-size: 0.95rem; }}
+  .md-section .md-content table {{ display: block; overflow-x: auto; min-width: 0; }}
+  .md-divider {{ padding: 0.9rem 1rem; margin: 1.75rem 0 1rem; }}
+  .md-divider-label {{ font-size: 0.98rem; }}
+  .md-divider-desc {{ font-size: 0.82rem; }}
+  .heatmap-cell, .heatmap-label {{ font-size: 0.72rem; padding: 0.15rem; }}
+  .heatmap-cell .sub {{ font-size: 0.58rem; }}
+  .footer {{ padding: 1.25rem 0.5rem; font-size: 0.78rem; }}
+}}
+@media (max-width: 480px) {{
+  .main {{ padding: 0.75rem; padding-top: 3.75rem; }}
+  .kpis {{ grid-template-columns: 1fr; }}
+  .top-bar h1 {{ font-size: 1.05rem; }}
 }}
 </style>
 </head>
 <body>
-<button class="mobile-toggle" onclick="document.querySelector('.sidebar').classList.toggle('open')">☰</button>
-<aside class="sidebar">
+<button class="mobile-toggle" aria-label="Toggle navigation" aria-controls="sidebar" onclick="toggleMenu()">☰</button>
+<div class="sidebar-backdrop" onclick="closeMenu()" aria-hidden="true"></div>
+<aside class="sidebar" id="sidebar">
   <div class="sidebar-logo"><span>\U0001F6A2</span> Titanic EDA</div>
   <div class="sidebar-sub">titanic5 · 1,309 passengers</div>
   <div style="margin-bottom:1.25rem;font-size:0.78rem;color:var(--text-muted);line-height:1.45;">
@@ -1342,10 +1393,31 @@ const observer = new IntersectionObserver((entries) => {{
 }}, {{ threshold: 0.2, rootMargin: '-15% 0px -50% 0px' }});
 document.querySelectorAll('section[id]').forEach(s => observer.observe(s));
 
+function openMenu() {{
+  document.querySelector('.sidebar').classList.add('open');
+  document.body.classList.add('menu-open');
+}}
+function closeMenu() {{
+  document.querySelector('.sidebar').classList.remove('open');
+  document.body.classList.remove('menu-open');
+}}
+function toggleMenu() {{
+  if (document.querySelector('.sidebar').classList.contains('open')) closeMenu();
+  else openMenu();
+}}
+
 document.querySelectorAll('.sidebar-nav a').forEach(link => {{
   link.addEventListener('click', () => {{
-    if (window.innerWidth <= 768) document.querySelector('.sidebar').classList.remove('open');
+    if (window.innerWidth <= 768) closeMenu();
   }});
+}});
+
+document.addEventListener('keydown', (e) => {{
+  if (e.key === 'Escape') closeMenu();
+}});
+
+window.addEventListener('resize', () => {{
+  if (window.innerWidth > 768) closeMenu();
 }});
 </script>
 </body>
