@@ -1,0 +1,37 @@
+cff-version: 1.2.0
+title: "Titanic Survival Analysis: Interactive EDA and Statistical Inference"
+message: "If you use this software, please cite it using the metadata from this file."
+type: software
+authors:
+  - given-names: Aneek
+    family-names: Hait
+    website: https://aneekhait.github.io
+repository-code: https://github.com/AneekHait/titanic-data-analysis
+url: https://aneekhait.github.io/titanic-data-analysis/
+abstract: >-
+  A reproducible exploratory data analysis of the titanic5 passenger
+  dataset (1,309 passengers, 14 features) with statistical inference
+  (95% Wilson confidence intervals, odds ratios, chi-square tests,
+  Cramer's V, and Cohen's d), an interactive Chart.js dashboard,
+  a stakeholder-ready analyst report, and a fully-tested reusable
+  Python package for EDA, statistics, and visualisation.
+keywords:
+  - titanic
+  - titanic-dataset
+  - exploratory-data-analysis
+  - eda
+  - data-analysis
+  - data-science
+  - statistical-inference
+  - odds-ratio
+  - chi-square
+  - confidence-interval
+  - effect-size
+  - python
+  - pandas
+  - kaggle
+  - dashboard
+  - reproducible-research
+license: MIT
+version: "0.2.0"
+date-released: "2026-05-26"

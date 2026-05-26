@@ -5,12 +5,42 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "titanic-eda"
 version = "0.2.0"
-description = "Quantitative survival analysis of the titanic5 dataset (1,309 passengers) with an interactive dashboard, a stakeholder-ready analyst report, and a fully-tested reusable Python package for EDA, statistical inference, and visualisation."
+description = "Titanic survival analysis: reproducible EDA of the titanic5 dataset (1,309 passengers) with 95% Wilson confidence intervals, odds ratios, chi-square tests, Cramer's V, and Cohen's d — plus an interactive Chart.js dashboard, a stakeholder analyst report (DOCX + PDF), and a fully-tested reusable Python package for EDA, statistical inference, and visualisation."
 readme = "README.md"
 license = { file = "LICENSE" }
 requires-python = ">=3.10"
 authors = [{ name = "Aneek Hait", email = "noreply@aneekhait.github.io" }]
-keywords = ["titanic", "eda", "data-analysis", "statistics", "dashboard", "survival-analysis"]
+keywords = [
+    "titanic",
+    "titanic-dataset",
+    "titanic-survival",
+    "eda",
+    "exploratory-data-analysis",
+    "data-analysis",
+    "data-science",
+    "statistics",
+    "statistical-inference",
+    "odds-ratio",
+    "chi-square",
+    "confidence-interval",
+    "effect-size",
+    "cramers-v",
+    "cohens-d",
+    "wilson-interval",
+    "dashboard",
+    "survival-analysis",
+    "kaggle",
+    "pandas",
+    "numpy",
+    "scipy",
+    "matplotlib",
+    "seaborn",
+    "chartjs",
+    "reproducible-research",
+    "feature-engineering",
+    "machine-learning",
+    "portfolio-project",
+]
 classifiers = [
     "Development Status :: 4 - Beta",
     "Intended Audience :: Science/Research",

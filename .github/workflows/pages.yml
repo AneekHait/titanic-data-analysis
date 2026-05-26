@@ -1,0 +1,63 @@
+name: Deploy dashboard to GitHub Pages
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "dashboard/**"
+      - "src/**"
+      - "scripts/**"
+      - "requirements.txt"
+      - ".github/workflows/pages.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: "pages"
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+      - name: Download dataset
+        run: python scripts/download_data.py
+      - name: Regenerate dashboard
+        run: python dashboard/generate.py
+      - name: Assemble site
+        run: |
+          mkdir -p _site
+          cp dashboard/index.html _site/index.html
+          if [ -f dashboard/titanic_eda_report.pdf ]; then
+            cp dashboard/titanic_eda_report.pdf _site/titanic_eda_report.pdf
+          fi
+          if [ -f reports/Titanic_Survival_Analyst_Report.pdf ]; then
+            cp reports/Titanic_Survival_Analyst_Report.pdf _site/Titanic_Survival_Analyst_Report.pdf
+          fi
+          if [ -d dashboard/_pdf_charts ]; then
+            cp -r dashboard/_pdf_charts _site/_pdf_charts
+          fi
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: _site
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4

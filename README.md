@@ -1,10 +1,44 @@
-# Titanic Survival Analysis
+# Titanic Survival Analysis &nbsp;·&nbsp; Interactive EDA + Statistical Inference
 
-A complete exploratory analysis of the **titanic5** passenger dataset (1,309 passengers, 14 features). The project quantifies who survived and why, validates every claim with formal statistical tests, and ships three production-quality deliverables: an **interactive HTML dashboard**, a **comprehensive analyst report** (DOCX + PDF), and a **classical EDA report PDF**.
+> **Who survived the Titanic, and why — quantified.** A complete, reproducible exploratory data analysis of the **titanic5** dataset (1,309 passengers, 14 features) with 95% Wilson confidence intervals, odds ratios, chi-square tests, Cramer's V, and Cohen's d. Ships an **interactive Chart.js dashboard**, a **stakeholder analyst report** (DOCX + PDF), a **classical EDA PDF**, and a **fully-tested Python package** for EDA, statistics, and visualisation.
 
-**Author:** [Aneek Hait](https://aneekhait.github.io)
-**License:** [MIT](LICENSE)
-**Dataset:** [titanic5](https://hbiostat.org/data/repo/titanic5.csv) — Encyclopedia Titanica / Vanderbilt Biostatistics
+[![CI](https://github.com/AneekHait/titanic-data-analysis/actions/workflows/ci.yml/badge.svg)](https://github.com/AneekHait/titanic-data-analysis/actions/workflows/ci.yml)
+[![Deploy](https://github.com/AneekHait/titanic-data-analysis/actions/workflows/pages.yml/badge.svg)](https://github.com/AneekHait/titanic-data-analysis/actions/workflows/pages.yml)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+[![Python 3.10+](https://img.shields.io/badge/python-3.10%2B-blue.svg)](pyproject.toml)
+[![Code style: ruff](https://img.shields.io/badge/lint-ruff-46c01b.svg)](https://docs.astral.sh/ruff/)
+[![Tests: 49](https://img.shields.io/badge/tests-49%20passing-brightgreen.svg)](tests/)
+[![Dataset: 1,309 passengers](https://img.shields.io/badge/dataset-1%2C309%20passengers-informational.svg)](https://hbiostat.org/data/repo/titanic5.csv)
+
+### 🔴 Live demo · [aneekhait.github.io/titanic-data-analysis](https://aneekhait.github.io/titanic-data-analysis/)
+
+📖 **Read the writeup inline:** [REPORT.md](REPORT.md) &nbsp;·&nbsp; 📊 **Open the dashboard:** [dashboard/index.html](dashboard/index.html) &nbsp;·&nbsp; 📄 **Download PDF:** [analyst report](reports/Titanic_Survival_Analyst_Report.pdf)
+
+**Author:** [Aneek Hait](https://aneekhait.github.io) &nbsp;·&nbsp; **License:** [MIT](LICENSE) &nbsp;·&nbsp; **Dataset:** [titanic5](https://hbiostat.org/data/repo/titanic5.csv) (Encyclopedia Titanica / Vanderbilt Biostatistics)
+
+---
+
+## Why this repo?
+
+Most Titanic projects stop at "women and children first" with a single bar chart. This one:
+
+- **Quantifies every claim** with 95% confidence intervals, odds ratios, and effect sizes — not just raw percentages.
+- **Reconciles counts across every stage** (raw → cleaned → engineered → reported) with an automated validator.
+- **Ships three audience-tuned deliverables** from one engineered DataFrame — interactive dashboard, narrative analyst report, classical PDF.
+- **Is actually reusable**: a clean `src/` package with 49 pytest tests, ruff, pre-commit, GitHub Actions, and a Dockerfile.
+- **Reads cold**: every statistical finding has a "What this means in plain English" callout.
+
+---
+
+## Preview
+
+![Survival overview chart](dashboard/_pdf_charts/survival_overview.png)
+
+![Class × sex joint survival](dashboard/_pdf_charts/joint_class_sex.png)
+
+![Effect sizes / odds ratios](dashboard/_pdf_charts/odds_ratios.png)
+
+> The dashboard renders the same data interactively with hover tooltips, error bars (Wilson 95% CIs), scroll-spy navigation, and dark + light themes. **[Open the live demo →](https://aneekhait.github.io/titanic-data-analysis/)**
 
 ---
 
@@ -129,6 +163,7 @@ titanic-data-analysis/
 | [reports/README.md](reports/README.md) | Index of generated reports and how to rebuild them |
 | [dashboard/README.md](dashboard/README.md) | What's in the dashboard, how to regenerate, theme notes |
 | [AGENTS.md](AGENTS.md) | Repo-specific notes for AI agents (Claude Code, Cursor, etc.) |
+| [docs/DISCOVERABILITY.md](docs/DISCOVERABILITY.md) | One-time GitHub settings (topics, Pages, social preview) to make the repo findable |
 | [CONTRIBUTING.md](CONTRIBUTING.md) | How to propose changes |
 | [CHANGELOG.md](CHANGELOG.md) | Recent improvements |
 | [ROADMAP.md](ROADMAP.md) | Outstanding ideas (ML modelling, Streamlit app, MLflow, etc.) |
@@ -162,9 +197,36 @@ If you only have time for one: open the dashboard.
 
 ---
 
+## Citation
+
+If you reference this work in research, teaching, or another project, please cite it:
+
+```bibtex
+@software{hait_titanic_eda,
+  author  = {Hait, Aneek},
+  title   = {Titanic Survival Analysis: Interactive EDA and Statistical Inference},
+  year    = {2026},
+  url     = {https://github.com/AneekHait/titanic-data-analysis},
+  license = {MIT}
+}
+```
+
+A machine-readable [`CITATION.cff`](CITATION.cff) is included so GitHub renders a "Cite this repository" button.
+
+---
+
 ## Acknowledgements
 
 - The titanic5 dataset is curated by [Encyclopedia Titanica](https://www.encyclopedia-titanica.org/) and hosted by [Vanderbilt Biostatistics](https://hbiostat.org/data/).
 - Statistical methodology references: Wilson 1927 (score interval), Cohen 1988 (effect sizes), Cramer 1946 (Cramer's V).
 
 Built by **[Aneek Hait](https://aneekhait.github.io)**.
+
+---
+
+<details>
+<summary>Keywords (for search)</summary>
+
+titanic dataset, titanic survival analysis, titanic eda, exploratory data analysis, kaggle titanic, data science portfolio project, statistical inference, odds ratio, chi-square test, Wilson confidence interval, Cramer's V, Cohen's d, pandas, numpy, scipy, matplotlib, seaborn, Chart.js, interactive dashboard, python data analysis, reproducible research, machine learning preparation, feature engineering, hypothesis testing.
+
+</details>

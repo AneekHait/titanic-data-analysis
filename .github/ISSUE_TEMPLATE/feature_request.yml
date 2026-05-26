@@ -1,0 +1,23 @@
+name: Feature request
+description: Suggest an analysis, chart, statistical test, or capability
+title: "[feature] "
+labels: ["enhancement"]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: What problem would this solve?
+      description: What question about the data would this help answer, or what limitation does it remove?
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed approach
+      description: What would you add or change? Reference the relevant section of the dashboard, the report, or a function in `src/`.
+    validations:
+      required: true
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives considered
